@@ -63,13 +63,16 @@ def get_default_path():
 def sync_huawei_lrc(lrc_path):
     """Menyalin file .lrc ke folder khusus Musiclrc bawaan Huawei/Android"""
     if "PREFIX" in os.environ and "com.termux" in os.environ.get("PREFIX", ""):
-        huawei_dir = os.path.join(str(Path.home()), "storage", "music", "Musiclrc")
+        # Gunakan path shared/Music agar dijamin mengarah ke Internal Storage/Music
+        huawei_dir = os.path.join(str(Path.home()), "storage", "shared", "Music", "Musiclrc")
         try:
             os.makedirs(huawei_dir, exist_ok=True)
             filename = os.path.basename(lrc_path)
-            shutil.copy2(lrc_path, os.path.join(huawei_dir, filename))
-        except Exception:
-            pass
+            # Pastikan file lrc yang di-copy memang ada
+            if os.path.exists(lrc_path):
+                shutil.copy2(lrc_path, os.path.join(huawei_dir, filename))
+        except Exception as e:
+            console.print(f"[dim yellow]⚠️ Gagal sinkronisasi LRC ({os.path.basename(lrc_path)}): {e}[/dim yellow]")
 
 custom_theme = questionary.Style([
     ('qmark', 'fg:#00ffff bold'),
@@ -165,10 +168,13 @@ def run_retrofit():
                 'writesubtitles': True,
                 'writeautomaticsub': True,
                 'subtitleslangs': ['id', 'en', 'all'],
-                'sleep_interval_requests': 1,  # Jeda aman saat ekstraksi data
-                'sleep_interval': 2,           # Jeda acak minimal 2 detik antar tugas
-                'max_sleep_interval': 5,       # Jeda acak maksimal 5 detik (seperti aktivitas manusia)
-                'sleep_interval_subtitles': 1,
+                'sleep_interval_requests': 1,
+                'sleep_interval': 3,           
+                'max_sleep_interval': 8,       
+                'sleep_interval_subtitles': 2,
+                'retries': 5,                  # Coba ulang 5x jika koneksi putus (Errno 104)
+                'file_access_retries': 5,
+                'fragment_retries': 5,
                 'outtmpl': temp_outtmpl,
                 'quiet': True,
                 'no_warnings': True,
