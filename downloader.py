@@ -264,6 +264,21 @@ def fetch_synced_lyrics(title, lrc_path, sync_huawei, transliterate_mode="❌ 1"
             clean_title = re.sub(r'\[.*?\]|\(.*?\)|【.*?】', '', title).strip()
         
         lrc_text = syncedlyrics.search(clean_title)
+        
+        # [Formula Pencarian Cerdas] Jika gagal, gunakan iTunes API untuk menebak judul resmi Spotify!
+        if not lrc_text and not override_query:
+            try:
+                import requests
+                smart_query = re.sub(r'(?i)(official|music video|mv|lyric|video|audio|cover)', '', clean_title).strip()
+                res = requests.get(f"https://itunes.apple.com/search?term={smart_query}&entity=song&limit=1", timeout=5).json()
+                if res.get('resultCount', 0) > 0:
+                    track = res['results'][0]['trackName']
+                    artist = res['results'][0]['artistName']
+                    smart_title = f"{artist} {track}"
+                    console.print(f"   [dim cyan]🔍 Formula Cerdas mendeteksi judul resmi: '{smart_title}'. Mencoba ulang...[/dim cyan]")
+                    lrc_text = syncedlyrics.search(smart_title)
+            except:
+                pass
         if lrc_text:
             with open(lrc_path, 'w', encoding='utf-8') as f:
                 f.write(lrc_text)
