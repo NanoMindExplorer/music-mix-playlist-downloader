@@ -175,9 +175,9 @@ def process_transliteration(lrc_path, transliterate_mode):
 def fetch_synced_lyrics(title, lrc_path, sync_huawei, transliterate_mode="❌ 1"):
     """Menggunakan library pihak ketiga (syncedlyrics) untuk mendapatkan lirik Studio Quality tanpa diblokir YouTube"""
     try:
-        # Hapus teks dalam kurung siku/biasa yang mengganggu pencarian lirik (e.g., "[Rainych]", "(Official Video)")
+        # Hapus teks dalam kurung siku/biasa/jepang yang mengganggu pencarian lirik (e.g., "[Rainych]", "【Rainych】", "(Official Video)")
         import re
-        clean_title = re.sub(r'\[.*?\]|\(.*?\)', '', title).strip()
+        clean_title = re.sub(r'\[.*?\]|\(.*?\)|【.*?】', '', title).strip()
         
         lrc_text = syncedlyrics.search(clean_title)
         if lrc_text:
@@ -186,7 +186,6 @@ def fetch_synced_lyrics(title, lrc_path, sync_huawei, transliterate_mode="❌ 1"
             process_transliteration(lrc_path, transliterate_mode)
             if sync_huawei:
                 sync_huawei_lrc(lrc_path)
-            return True
         else:
             console.print(f"[dim yellow]⚠️ Lirik tidak ditemukan di database untuk: {clean_title}[/dim yellow]")
     except Exception as e:
@@ -379,6 +378,12 @@ def run_retrofit():
                     process_transliteration(lrc_path, transliterate)
                     if sync_huawei:
                         sync_huawei_lrc(lrc_path)
+                
+                # Peringatan jika lirik benar-benar tidak ditemukan (YouTube tidak memiliki CC)
+                if not os.path.exists(lrc_path):
+                    progress.stop()
+                    console.print(f"[bold yellow]⚠️ Lirik dilewati: Video YouTube tidak memiliki CC untuk {title[:30]}...[/bold yellow]")
+                    progress.start()
                         
             # BLOK 2: Pemrosesan Cover Art
             if not target_mode.startswith("📝 2"):
@@ -713,6 +718,12 @@ def run_cli():
                                     process_transliteration(lrc_path, transliterate)
                                     if sync_huawei:
                                         sync_huawei_lrc(lrc_path)
+                                
+                                # Peringatan jika lirik benar-benar tidak ditemukan
+                                if not os.path.exists(lrc_path):
+                                    progress.stop()
+                                    console.print(f"[bold yellow]⚠️ Lirik dilewati: Video YouTube tidak memiliki CC untuk {song_title[:30]}...[/bold yellow]")
+                                    progress.start()
                 progress.update(main_task, description="[bold green]✨ Seluruh tugas selesai!", completed=100, total=100)
             except Exception as e:
                 progress.stop()
