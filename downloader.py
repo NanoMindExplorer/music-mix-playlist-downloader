@@ -11,6 +11,12 @@ from rich.panel import Panel
 from urllib.error import HTTPError
 try:
     import syncedlyrics
+    # Patch bawaan syncedlyrics yang membatasi timeout koneksi menjadi 2 detik (terlalu singkat untuk Termux/koneksi lambat)
+    from syncedlyrics.providers.base import TimeoutSession
+    def custom_request(self, method, url, **kwargs):
+        kwargs.setdefault("timeout", (10, 30)) # Connect 10s, Read 30s
+        return super(TimeoutSession, self).request(method, url, **kwargs)
+    TimeoutSession.request = custom_request
 except ModuleNotFoundError:
     print("\n❌ Modul 'syncedlyrics' belum terinstal!")
     print("Silakan jalankan perintah berikut untuk menginstal pembaruan:")
@@ -219,7 +225,8 @@ def run_retrofit():
                 pass
                 
             # Tarik lirik menggunakan library API tanpa mempedulikan blokir YouTube
-            if not os.path.exists(lrc_path):
+            huawei_lrc_path = os.path.join(str(Path.home()), "storage", "shared", "Music", "Musiclrc", f"{title}.lrc")
+            if not os.path.exists(lrc_path) and not (sync_huawei and os.path.exists(huawei_lrc_path)):
                 fetch_synced_lyrics(title, lrc_path, sync_huawei)
                     
             # Cari Cover Art hasil download (bisa .jpg, .webp)
