@@ -50,8 +50,10 @@ Aplikasi akan memandu Anda melalui antarmuka (UI) terminal yang cantik:
 ---
 
 ## ✨ Fitur Unggulan
-- **Interactive CLI**: Tampilan terminal yang indah, berwarna, dan mudah digunakan (dibangun dengan `rich`).
+- **Mode Retrofit Otomatis (Perbaikan Metadata Lama)**: Punya lagu-lagu lama yang diunduh sebelumnya tapi belum ada Cover Art atau Lirik? CLI ini bisa memindai seluruh folder Anda, mencarikan metadata aslinya di YouTube, lalu menyuntikkan Lirik & Thumbnail ke dalam file MP3/FLAC lama Anda secara otomatis! (Tanpa perlu unduh audionya ulang).
+- **Interactive CLI (Next-Gen UI)**: Tampilan terminal yang indah bergaya *Cyberpunk/Hacker*, dilengkapi dengan menu navigasi berbasis *Arrow Key* (dibangun dengan `rich` & `questionary`).
 - **Pencarian Cerdas (Search by Text)**: Tidak mau repot *copy-paste* URL? Cukup ketikkan judul lagunya (misal: "Linkin Park Numb"), dan CLI otomatis mencarikan serta mengunduh hasil terbaik untuk Anda!
+- **Download & Sinkronisasi Lirik (Karaoke Mode)**: Otomatis mendownload subtitle resmi lagu dari YouTube dan mengubahnya menjadi file `.lrc`. Sinkron dengan pemutar musik di HP Anda.
 - **Sistem Anti-Duplikat (Smart Archive)**: Aplikasi akan mengingat lagu apa saja yang sudah Anda unduh. Jika Anda mengunduh playlist yang sama di masa depan, aplikasi **otomatis melompati (skip) lagu lama** dan hanya mengunduh lagu yang baru ditambahkan!
 - **Embed Cover Art & Metadata**: Otomatis menyematkan Thumbnail YouTube sebagai *Album Cover* beserta informasi judul, artis, dan tahun lagu langsung ke dalam file musik Anda. Tampil sangat profesional di HP atau pemutar musik mobil!
 - Mendownload seluruh video dalam sebuah **YouTube Playlist** atau **YouTube Mix**.
