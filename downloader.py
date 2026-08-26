@@ -99,8 +99,12 @@ def run_cli():
         }
         selected_fmt = format_map[format_choice]
 
-        # Menetapkan path ke folder Download utama di OS pengguna
-        output_dir = str(Path.home() / "Downloads" / "YT_Downloader")
+        # Menetapkan path ke folder Download utama
+        # Deteksi pintar jika dijalankan di dalam Termux (Android)
+        if "PREFIX" in os.environ and "com.termux" in os.environ.get("PREFIX", ""):
+            output_dir = str(Path.home() / "storage" / "downloads" / "YT_Downloader")
+        else:
+            output_dir = str(Path.home() / "Downloads" / "YT_Downloader")
         
         # Panel Ringkasan
         summary = Text()

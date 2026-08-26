@@ -10,8 +10,9 @@ Cukup salin (copy) dan jalankan (paste) satu baris perintah di bawah ini pada te
 Perintah sakti ini didesain untuk **otomatis menginstal versi terbaru** dari aplikasi beserta seluruh dependensinya (`yt-dlp` dkk). Anda juga bisa menjalankan ulang perintah ini kapan saja untuk memperbarui (*update*) ke versi paling mutakhir!
 
 ### 📱 Android (Termux)
+*(Catatan: Anda akan dimintai izin akses penyimpanan, tekan Allow/Izinkan)*
 ```bash
-pkg update -y && pkg install -y python ffmpeg git && rm -rf yt-mix-playlist-to-audio-downloader && git clone https://github.com/NanoMindExplorer/yt-mix-playlist-to-audio-downloader.git && cd yt-mix-playlist-to-audio-downloader && pip install -U -r requirements.txt
+termux-setup-storage; pkg update -y && pkg install -y python ffmpeg git && rm -rf yt-mix-playlist-to-audio-downloader && git clone https://github.com/NanoMindExplorer/yt-mix-playlist-to-audio-downloader.git && cd yt-mix-playlist-to-audio-downloader && pip install -U -r requirements.txt
 ```
 
 ### 🐧 Linux (Ubuntu/Debian)
