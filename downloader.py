@@ -73,15 +73,26 @@ def run_cli():
             subtitle_align="center"
         ))
 
-        # 3. Validasi URL yang ketat
-        url = Prompt.ask("\n[bold yellow]🔗 Masukkan URL YouTube (Playlist/Mix)[/bold yellow]").strip()
-        if not url:
-            console.print("[red]⚠️ URL tidak boleh kosong![/red]")
+        # 3. Validasi URL / Pencarian
+        url_or_search = Prompt.ask("\n[bold yellow]🔗 Masukkan URL YouTube ATAU Ketik Judul Lagu[/bold yellow]").strip()
+        if not url_or_search:
+            console.print("[red]⚠️ Input tidak boleh kosong![/red]")
             Confirm.ask("Tekan Enter untuk mengulang...", default=True)
             continue
             
-        limit_choice = Confirm.ask("[bold yellow]❓ Batasi jumlah lagu yang diunduh dari playlist ini?[/bold yellow]", default=False)
+        is_search = not (url_or_search.startswith("http://") or url_or_search.startswith("https://") or url_or_search.startswith("www."))
+            
+        limit_choice = Confirm.ask(f"[bold yellow]❓ Batasi jumlah lagu yang diunduh {'dari hasil pencarian ' if is_search else 'dari playlist '}ini?[/bold yellow]", default=False)
         max_songs = IntPrompt.ask("[bold yellow]🎵 Berapa maksimal lagu yang ingin diunduh?[/bold yellow]", default=10) if limit_choice else None
+        
+        if is_search:
+            # Jika berupa teks, format menggunakan sintaks ytsearch bawaan yt-dlp
+            search_limit = max_songs if max_songs else 1
+            final_target = f"ytsearch{search_limit}:{url_or_search}"
+            display_target = f"Pencarian: '{url_or_search}' (Top {search_limit} Hasil)"
+        else:
+            final_target = url_or_search
+            display_target = url_or_search
         
         # 4. Pilihan Format Menggunakan Data Structure yang Solid
         console.print("\n[bold cyan]Pilihan Kualitas Audio:[/bold cyan]")
@@ -115,8 +126,8 @@ def run_cli():
         
         # Panel Ringkasan
         summary = Text()
-        summary.append("URL Target   : ", style="bold white")
-        summary.append(f"{url}\n", style="cyan")
+        summary.append("Target       : ", style="bold white")
+        summary.append(f"{display_target}\n", style="cyan")
         summary.append("Batas Lagu   : ", style="bold white")
         summary.append(f"{max_songs if max_songs else 'Semua (Tanpa Batas)'}\n", style="green")
         summary.append("Format       : ", style="bold white")
@@ -218,7 +229,7 @@ def run_cli():
             # Eksekusi yt-dlp
             try:
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    ydl.download([url])
+                    ydl.download([final_target])
                 
                 # Selesaikan task progress
                 progress.update(main_task, description="[bold green]✨ Seluruh tugas selesai!", completed=100, total=100)
