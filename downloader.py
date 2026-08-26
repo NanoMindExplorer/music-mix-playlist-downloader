@@ -14,7 +14,8 @@ from rich.progress import (
     BarColumn, 
     DownloadColumn, 
     TransferSpeedColumn, 
-    TimeRemainingColumn
+    TimeRemainingColumn,
+    TaskProgressColumn
 )
 
 console = Console()
