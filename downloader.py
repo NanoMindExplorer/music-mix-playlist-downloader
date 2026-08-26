@@ -219,16 +219,31 @@ def run_retrofit():
         sync_huawei = questionary.confirm("📱 Aktifkan Sinkronisasi Lirik khusus Huawei/HarmonyOS (Kopi ke folder Music/Musiclrc)?", default=False, style=custom_theme).ask()
 
     console.print()
-    transliterate = questionary.select(
-        "🔤 Ubah Huruf Asing (Jepang/Mandarin/Korea/Thai dll) ke Tulisan Biasa (Romaji/Pinyin/Latin)?",
+    lyrics_mode = questionary.select(
+        "📝 Pilih Sumber & Mesin Lirik (Sangat Penting):",
         choices=[
-            "❌ 1. Biarkan Aslinya (Jangan diubah)",
-            "🇯🇵 2. Ya, Ubah Huruf Jepang ke Romaji (Khusus Lagu Jepang/Anime)",
-            "🇨🇳 3. Ya, Ubah Huruf Mandarin ke Pinyin (Khusus Lagu China)",
-            "🤖 4. Deteksi Otomatis & Ubah Semua (Khusus Playlist Campur/Berbagai Negara)"
+            "🎧 1. Mesin Spotify/Musixmatch (Anti-Blokir YT) - Terbaik untuk Lagu Asli (Original)",
+            "📺 2. Mesin YouTube Subtitles (Rawan 429) - Terbaik untuk Lagu Cover (Timing 100% Akurat)",
+            "❌ 3. Jangan download lirik"
         ],
         style=custom_theme
     ).ask()
+    
+    download_lyrics = not lyrics_mode.startswith("❌ 3")
+
+    transliterate = "❌ 1"
+    if download_lyrics:
+        console.print()
+        transliterate = questionary.select(
+            "🔤 Ubah Huruf Asing (Jepang/Mandarin/Korea/Thai dll) ke Tulisan Biasa (Romaji/Pinyin/Latin)?",
+            choices=[
+                "❌ 1. Biarkan Aslinya (Jangan diubah)",
+                "🇯🇵 2. Ya, Ubah Huruf Jepang ke Romaji (Khusus Lagu Jepang/Anime)",
+                "🇨🇳 3. Ya, Ubah Huruf Mandarin ke Pinyin (Khusus Lagu China)",
+                "🤖 4. Deteksi Otomatis & Ubah Semua (Khusus Playlist Campur/Berbagai Negara)"
+            ],
+            style=custom_theme
+        ).ask()
 
     # Langkah 0: Perbaiki (Rename) file LRC lama, Terapkan Transliterasi, dan Sync ke Huawei
     fixed_lrc_count = 0
@@ -316,6 +331,11 @@ def run_retrofit():
                 'logger': YTDLPLogger()
             }
             
+            if lyrics_mode.startswith("📺 2"):
+                ydl_opts['writesubtitles'] = True
+                ydl_opts['subtitleslangs'] = ['id', 'en', 'ja', 'ko', 'all']
+                ydl_opts['postprocessors'] = [{'key': 'FFmpegSubtitlesConvertor', 'format': 'lrc'}]
+                
             search_query = f"ytsearch1:{title}"
             try:
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -323,10 +343,21 @@ def run_retrofit():
             except Exception:
                 pass
                 
-            # Tarik lirik menggunakan library API tanpa mempedulikan blokir YouTube
+            # Tangani lirik hasil unduhan YouTube (jika menggunakan Mode 2)
+            if lyrics_mode.startswith("📺 2"):
+                for yt_lrc in glob.glob(os.path.join(dir_path, f"temp_meta_{title}*.lrc")):
+                    if os.path.exists(lrc_path): os.remove(lrc_path)
+                    shutil.move(yt_lrc, lrc_path)
+            
+            # Jika lirik belum ada dan kita pakai Mode 1 (Spotify)
             huawei_lrc_path = os.path.join(str(Path.home()), "storage", "shared", "Music", "Musiclrc", f"{title}.lrc")
-            if not os.path.exists(lrc_path) and not (sync_huawei and os.path.exists(huawei_lrc_path)):
+            if lyrics_mode.startswith("🎧 1") and not os.path.exists(lrc_path) and not (sync_huawei and os.path.exists(huawei_lrc_path)):
                 fetch_synced_lyrics(title, lrc_path, sync_huawei, transliterate)
+            # Jika lirik sudah ada (misal dari YouTube CC Mode 2), transliterasi & sinkronisasi
+            elif os.path.exists(lrc_path):
+                process_transliteration(lrc_path, transliterate)
+                if sync_huawei:
+                    sync_huawei_lrc(lrc_path)
                     
             # Cari Cover Art hasil download (bisa .jpg, .webp)
             temp_cover_glob = glob.glob(os.path.join(dir_path, f"temp_meta_{title}*.webp")) + glob.glob(os.path.join(dir_path, f"temp_meta_{title}*.jpg"))
