@@ -192,9 +192,12 @@ def process_translation(lrc_path, translate_mode):
         translated_texts = []
         try:
             translator = GoogleTranslator(source='auto', target='id')
-            translated_texts = translator.translate_batch(texts_to_translate)
-            if any(t and "Error 500" in t for t in translated_texts):
+            # Gabungkan semua baris menjadi satu string besar (dipisah newline) untuk menghindari spam HTTP Request
+            combined_text = "\n".join(texts_to_translate)
+            res = translator.translate(combined_text)
+            if not res or "Error 500" in res:
                 raise Exception("Google Translate Web API Error 500")
+            translated_texts = res.split('\n')
         except Exception as e:
             console.print(f"[dim yellow]⚠️ Google Translate gagal ({e}). Beralih ke mesin cadangan (MyMemory)...[/dim yellow]")
             pure_text = " ".join([t for t in texts_to_translate if t.strip()])
@@ -205,14 +208,34 @@ def process_translation(lrc_path, translate_mode):
             source_lang = lang_map.get(lang, f"{lang}-{lang.upper()}")
             
             try:
+                # MyMemory memiliki limit 500 karakter per request.
+                import time
                 mm = MyMemoryTranslator(source=source_lang, target='id-ID')
-                translated_texts = mm.translate_batch(texts_to_translate)
+                current_chunk = []
+                current_len = 0
+                for text in texts_to_translate:
+                    if current_len + len(text) + 1 > 450:
+                        combined = "\n".join(current_chunk)
+                        res = mm.translate(combined)
+                        translated_texts.extend(res.split('\n'))
+                        current_chunk = [text]
+                        current_len = len(text)
+                        time.sleep(1) # Hindari Rate Limit MyMemory
+                    else:
+                        current_chunk.append(text)
+                        current_len += len(text) + 1
+                        
+                if current_chunk:
+                    combined = "\n".join(current_chunk)
+                    res = mm.translate(combined)
+                    translated_texts.extend(res.split('\n'))
             except Exception as e2:
                 console.print(f"[dim yellow]⚠️ Semua mesin terjemahan gagal: {e2}[/dim yellow]")
                 return
 
-        if not translated_texts or len(translated_texts) != len(lines):
-            return
+        # Pastikan jumlah array cocok, jika MyMemory memotong baris kosong
+        if len(translated_texts) < len(lines):
+            translated_texts.extend([""] * (len(lines) - len(translated_texts)))
 
         output = []
         for i, line in enumerate(lines):
