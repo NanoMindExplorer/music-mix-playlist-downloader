@@ -55,9 +55,22 @@ def run_cli():
         # 2. UI yang Bersih dan Terorganisir
         console.clear()
         
-        banner = Text("🚀 YT Mix & Playlist Downloader Pro 🚀\n", style="bold cyan", justify="center")
-        banner.append("Ultimate Performance & Lossless Quality Edition", style="italic white")
-        console.print(Panel(banner, border_style="cyan", padding=(1, 2)))
+        banner = Text()
+        banner.append("🚀 YT Mix & Playlist Downloader Pro 🚀\n", style="bold cyan")
+        banner.append("Ultimate Performance & Lossless Quality Edition\n\n", style="italic white")
+        banner.append("Created by ", style="white")
+        banner.append("NanoMindExplorer", style="bold yellow")
+        banner.justify = "center"
+        
+        console.print(Panel(
+            banner, 
+            border_style="bold blue", 
+            padding=(1, 2),
+            title="[bold magenta]v1.0[/bold magenta]",
+            title_align="right",
+            subtitle="[dim]Open Source CLI Tool[/dim]",
+            subtitle_align="center"
+        ))
 
         # 3. Validasi URL yang ketat
         url = Prompt.ask("\n[bold yellow]🔗 Masukkan URL YouTube (Playlist/Mix)[/bold yellow]").strip()
