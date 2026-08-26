@@ -153,6 +153,14 @@ def run_cli():
             style=custom_theme
         ).ask()
 
+        # 5. Fitur Download Lirik
+        console.print()
+        download_lyrics = questionary.confirm(
+            "🎤 Download & Sinkronisasi Lirik (Buat file .lrc jika teks tersedia di YouTube)?",
+            default=True,
+            style=custom_theme
+        ).ask()
+
         # Path Logika
         if "PREFIX" in os.environ and "com.termux" in os.environ.get("PREFIX", ""):
             output_dir = str(Path.home() / "storage" / "downloads" / "YT_Downloader")
@@ -174,6 +182,7 @@ def run_cli():
         is_wav = selected_fmt['codec'] == 'wav'
         table.add_row("🖼️ ID3 & Cover Art", "[green]✅ Aktif[/green]" if not is_wav else "[yellow]⚠️ Tidak Mendukung (WAV)[/yellow]")
         table.add_row("🛡️ Anti-Duplikat", "[green]✅ Aktif[/green]" if anti_duplicate else "[red]❌ Nonaktif[/red]")
+        table.add_row("🎤 Download Lirik", "[green]✅ Aktif (.lrc)[/green]" if download_lyrics else "[red]❌ Nonaktif[/red]")
         table.add_row("📁 Folder Simpan", f"[yellow]{output_dir}[/yellow]")
         
         console.print(table)
@@ -201,6 +210,11 @@ def run_cli():
         }
         if anti_duplicate:
             ydl_opts['download_archive'] = archive_file
+            
+        if download_lyrics:
+            ydl_opts['writesubtitles'] = True
+            ydl_opts['writeautomaticsub'] = True
+            ydl_opts['subtitleslangs'] = ['id', 'en', 'ja', 'ko', 'all']
 
         pp = [{'key': 'FFmpegExtractAudio', 'preferredcodec': selected_fmt['codec']}]
         if selected_fmt['quality']:
@@ -210,6 +224,12 @@ def run_cli():
         if not is_wav:
             ydl_opts['writethumbnail'] = True
             pp.append({'key': 'EmbedThumbnail', 'already_have_thumbnail': False})
+            
+        if download_lyrics:
+            pp.append({
+                'key': 'FFmpegSubtitlesConvertor',
+                'format': 'lrc'
+            })
             
         ydl_opts['postprocessors'] = pp
         if max_songs:
