@@ -4,6 +4,7 @@ import shutil
 from pathlib import Path
 import yt_dlp
 from rich.console import Console
+from rich import box
 from rich.panel import Panel
 from rich.prompt import Prompt, IntPrompt, Confirm
 from rich.text import Text
@@ -54,23 +55,26 @@ def run_cli():
         sys.exit(1)
 
     while True:
-        # 2. UI yang Bersih dan Terorganisir
+        # 2. UI yang Bersih, Elegan, dan Artistik
         console.clear()
         
         banner = Text()
-        banner.append("🚀 YT Mix & Playlist Downloader Pro 🚀\n", style="bold cyan")
-        banner.append("Ultimate Performance & Lossless Quality Edition\n\n", style="italic white")
-        banner.append("Created by ", style="white")
-        banner.append("NanoMindExplorer", style="bold yellow")
+        banner.append("✦ ════════════════════════════════════════════ ✦\n", style="bold cyan")
+        banner.append(" High-Fidelity & Lossless Audio Engine \n", style="italic bright_white")
+        banner.append("✦ ════════════════════════════════════════════ ✦\n\n", style="bold cyan")
+        
+        banner.append("Artfully Crafted by\n", style="dim white")
+        banner.append("✦ NanoMindExplorer ✦", style="bold bright_yellow")
         banner.justify = "center"
         
         console.print(Panel(
             banner, 
-            border_style="bold blue", 
-            padding=(1, 2),
-            title="[bold magenta]v1.1 - Cover Art Editon[/bold magenta]",
-            title_align="right",
-            subtitle="[dim]Open Source CLI Tool[/dim]",
+            box=box.DOUBLE, 
+            border_style="bold magenta", 
+            padding=(1, 4),
+            title="[bold bright_white on magenta] 🎵 YT AUDIO DOWNLOADER PRO [/bold bright_white on magenta]",
+            title_align="center",
+            subtitle="[bold white]v1.1[/bold white] [dim]• Open Source CLI[/dim]",
             subtitle_align="center"
         ))
 
