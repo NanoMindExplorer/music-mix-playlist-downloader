@@ -36,16 +36,19 @@ Setelah instalasi selesai, pastikan Anda berada di dalam folder aplikasinya (`cd
 python downloader.py
 ```
 
-### Panduan Interaktif:
-Aplikasi akan memandu Anda melalui antarmuka (UI) terminal yang cantik:
-1. **Masukkan URL YouTube:** Paste *link* (tautan) YouTube Mix atau Playlist yang ingin diunduh.
-2. **Pembatasan Lagu (Opsional):** Anda bisa memilih untuk mengunduh semua lagu atau membatasinya (misal: hanya 5 lagu pertama saja).
-3. **Pilih Kualitas Audio (Best Quality):**
-   - `[1] MP3 (320kbps)` - Kualitas standar tertinggi, hemat penyimpanan.
-   - `[2] FLAC (Lossless)` - Kualitas murni tanpa merusak detail suara (ukuran besar).
-   - `[3] WAV (Uncompressed)` - Kualitas mentah studio (ukuran sangat besar).
-   - `[4] Original Audio` - File audio asli dari YouTube (biasanya Opus/M4A) tanpa konversi.
-4. **Mulai Unduhan:** Setelah Anda mengkonfirmasi panel ringkasan, bar progres (Progress Bar) modern akan muncul dan menampilkan kecepatan unduhan (MB/s) serta estimasi waktu.
+### Panduan Interaktif (Navigasi Next-Gen):
+Aplikasi ini tidak menggunakan antarmuka lawas yang kaku. Saat dijalankan, Anda akan disambut oleh UI bergaya *hacker/cyberpunk* yang sangat modern!
+Gunakan **Tombol Panah (Atas ⬆️ / Bawah ⬇️)** di *keyboard* Anda untuk memilih menu, dan tekan **Enter** untuk mengkonfirmasi.
+
+**Terdapat 2 Mode Utama:**
+1. **📥 Mode Utama (Download Musik):**
+   - **Cerdas:** Anda bisa menempelkan (paste) *link* YouTube Playlist/Mix panjang, ATAU Anda cukup mengetikkan **Judul Lagu** (misal: "Numb Linkin Park") dan mesin akan mencarikannya untuk Anda!
+   - **Navigasi Panah:** Pilih format output Anda (MP3, FLAC, WAV, dll) hanya dengan menggeser panah *keyboard*.
+   - **Dashboard Keren:** Sebelum mengunduh, konfigurasi Anda akan dirangkum dalam sebuah Tabel *Dashboard* yang cantik.
+
+2. **🛠️ Mode Retrofit (Otomatis Perbaiki Lagu Lama):**
+   - Jika Anda memiliki lagu-lagu lama yang "botak" (tidak ada gambar sampul dan lirik), pilih mode ini.
+   - Mesin akan memindai folder Anda, melacak judul lagunya di YouTube, **mengunduh lirik (.lrc) dan gambar covernya tanpa mendownload audionya**, lalu otomatis **menyuntikkannya ke dalam lagu lama Anda!** File musik jadul Anda akan langsung menjadi premium seketika.
 
 ---
 
