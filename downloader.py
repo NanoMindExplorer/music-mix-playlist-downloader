@@ -91,6 +91,11 @@ def run_retrofit():
         console.print("[bold red]❌ Folder tidak ditemukan![/bold red]")
         return
 
+    # Prompt khusus Termux/Huawei
+    sync_huawei = False
+    if "PREFIX" in os.environ and "com.termux" in os.environ.get("PREFIX", ""):
+        sync_huawei = questionary.confirm("📱 Aktifkan Sinkronisasi Lirik khusus Huawei/HarmonyOS (Kopi ke folder Music/Musiclrc)?", default=False, style=custom_theme).ask()
+
     # Langkah 0: Perbaiki (Rename) file LRC lama dan Sync ke Huawei
     fixed_lrc_count = 0
     for lrc_file in glob.glob(os.path.join(target_folder, "**", "*.lrc"), recursive=True):
@@ -104,11 +109,13 @@ def run_retrofit():
                     continue
                 os.remove(new_path)
             shutil.move(lrc_file, new_path)
-            sync_huawei_lrc(new_path)
+            if sync_huawei:
+                sync_huawei_lrc(new_path)
             fixed_lrc_count += 1
         else:
             # Jika namanya sudah benar, tetap sync ke Huawei
-            sync_huawei_lrc(lrc_file)
+            if sync_huawei:
+                sync_huawei_lrc(lrc_file)
             
     if fixed_lrc_count > 0:
         console.print(f"[bold green]✅ Berhasil memperbaiki penamaan & sinkronisasi {fixed_lrc_count} file Lirik lama secara instan![/bold green]")
@@ -182,7 +189,8 @@ def run_retrofit():
             for temp_lrc in temp_lrc_glob:
                 if os.path.exists(temp_lrc):
                     shutil.move(temp_lrc, lrc_path)
-                    sync_huawei_lrc(lrc_path)
+                    if sync_huawei:
+                        sync_huawei_lrc(lrc_path)
                     
             # Cari Cover Art hasil download (bisa .jpg, .webp)
             temp_cover_glob = glob.glob(os.path.join(dir_path, f"temp_meta_{title}*.webp")) + glob.glob(os.path.join(dir_path, f"temp_meta_{title}*.jpg"))
@@ -286,6 +294,11 @@ def run_cli():
         anti_duplicate = questionary.confirm("🛡️ Aktifkan Anti-Duplikat (Lewati lagu lama)?", default=True, style=custom_theme).ask()
         console.print()
         download_lyrics = questionary.confirm("🎤 Download & Sinkronisasi Lirik (.lrc)?", default=True, style=custom_theme).ask()
+        
+        sync_huawei = False
+        if download_lyrics and "PREFIX" in os.environ and "com.termux" in os.environ.get("PREFIX", ""):
+            console.print()
+            sync_huawei = questionary.confirm("📱 Aktifkan Sinkronisasi Lirik khusus Huawei/HarmonyOS (Kopi ke folder Music/Musiclrc)?", default=False, style=custom_theme).ask()
 
         output_dir = get_default_path()
         archive_file = os.path.join(output_dir, "archive.txt")
@@ -386,9 +399,11 @@ def run_cli():
                                             continue
                                         os.remove(new_path)
                                     shutil.move(old_path, new_path)
-                                    sync_huawei_lrc(new_path)
+                                    if sync_huawei:
+                                        sync_huawei_lrc(new_path)
                                 else:
-                                    sync_huawei_lrc(os.path.join(root, file))
+                                    if sync_huawei:
+                                        sync_huawei_lrc(os.path.join(root, file))
 
                 progress.update(main_task, description="[bold green]✨ Seluruh tugas selesai!", completed=100, total=100)
             except Exception as e:
