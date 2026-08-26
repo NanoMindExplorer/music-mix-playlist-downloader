@@ -51,7 +51,8 @@ Aplikasi akan memandu Anda melalui antarmuka (UI) terminal yang cantik:
 
 ## ✨ Fitur Unggulan
 - **Interactive CLI**: Tampilan terminal yang indah, berwarna, dan mudah digunakan (dibangun dengan `rich`).
-- **Embed Cover Art & Metadata (Baru!)**: Otomatis menyematkan Thumbnail YouTube sebagai *Album Cover* beserta informasi judul, artis, dan tahun lagu langsung ke dalam file musik Anda. Tampil sangat profesional di HP atau pemutar musik mobil!
+- **Sistem Anti-Duplikat (Smart Archive)**: Aplikasi akan mengingat lagu apa saja yang sudah Anda unduh. Jika Anda mengunduh playlist yang sama di masa depan, aplikasi **otomatis melompati (skip) lagu lama** dan hanya mengunduh lagu yang baru ditambahkan!
+- **Embed Cover Art & Metadata**: Otomatis menyematkan Thumbnail YouTube sebagai *Album Cover* beserta informasi judul, artis, dan tahun lagu langsung ke dalam file musik Anda. Tampil sangat profesional di HP atau pemutar musik mobil!
 - Mendownload seluruh video dalam sebuah **YouTube Playlist** atau **YouTube Mix**.
 - **Penyimpanan Otomatis**: Semua lagu kini otomatis tersimpan di folder bawaan `Downloads` di perangkat/komputer Anda (termasuk deteksi pintar untuk Termux Android).
 - Melanjutkan unduhan jika ada video yang error (misal: video dihapus/private).

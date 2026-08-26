@@ -100,24 +100,32 @@ def run_cli():
         }
         selected_fmt = format_map[format_choice]
 
+        # 5. Fitur Anti-Duplikat
+        console.print("")
+        anti_duplicate = Confirm.ask("[bold yellow]🛡️ Aktifkan fitur Anti-Duplikat (Lewati otomatis lagu yang pernah diunduh)?[/bold yellow]", default=True)
+
         # Menetapkan path ke folder Download utama
         # Deteksi pintar jika dijalankan di dalam Termux (Android)
         if "PREFIX" in os.environ and "com.termux" in os.environ.get("PREFIX", ""):
             output_dir = str(Path.home() / "storage" / "downloads" / "YT_Downloader")
         else:
             output_dir = str(Path.home() / "Downloads" / "YT_Downloader")
+            
+        archive_file = os.path.join(output_dir, "archive.txt")
         
         # Panel Ringkasan
         summary = Text()
-        summary.append("URL Target  : ", style="bold white")
+        summary.append("URL Target   : ", style="bold white")
         summary.append(f"{url}\n", style="cyan")
-        summary.append("Batas Lagu  : ", style="bold white")
+        summary.append("Batas Lagu   : ", style="bold white")
         summary.append(f"{max_songs if max_songs else 'Semua (Tanpa Batas)'}\n", style="green")
-        summary.append("Format      : ", style="bold white")
+        summary.append("Format       : ", style="bold white")
         summary.append(f"{selected_fmt['name']}\n", style="magenta")
-        summary.append("ID3 & Cover : ", style="bold white")
+        summary.append("ID3 & Cover  : ", style="bold white")
         summary.append("✅ Aktif (Embed Metadata & Thumbnail)\n" if selected_fmt['codec'] != 'wav' else "⚠️ Tidak Aktif (WAV tidak mendukung Cover)\n", style="green" if selected_fmt['codec'] != 'wav' else "yellow")
-        summary.append("Folder      : ", style="bold white")
+        summary.append("Anti-Duplikat: ", style="bold white")
+        summary.append("✅ Aktif\n" if anti_duplicate else "❌ Tidak Aktif\n", style="green" if anti_duplicate else "red")
+        summary.append("Folder       : ", style="bold white")
         summary.append(f"{output_dir}\n", style="yellow")
         
         console.print(Panel(summary, title="[bold blue]Ringkasan Tugas[/bold blue]", border_style="blue"))
@@ -139,6 +147,9 @@ def run_cli():
             'logger': YTDLPLogger(),  # Gunakan custom logger
             'extract_flat': False,
         }
+        
+        if anti_duplicate:
+            ydl_opts['download_archive'] = archive_file
 
         # --- KONFIGURASI METADATA & COVER ART (THUMBNAIL) ---
         pp = [{'key': 'FFmpegExtractAudio', 'preferredcodec': selected_fmt['codec']}]
