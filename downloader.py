@@ -88,7 +88,43 @@ def sync_huawei_lrc(lrc_path):
         except Exception as e:
             console.print(f"[dim yellow]⚠️ Gagal sinkronisasi LRC ({os.path.basename(lrc_path)}): {e}[/dim yellow]")
 
-def fetch_synced_lyrics(title, lrc_path, sync_huawei):
+def process_transliteration(lrc_path, transliterate_mode):
+    """Mengubah huruf Jepang/Mandarin di dalam file LRC menjadi Romaji/Pinyin"""
+    if not os.path.exists(lrc_path): return
+    if transliterate_mode.startswith("❌ 1"): return
+    
+    try:
+        with open(lrc_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+            
+        new_lines = []
+        if transliterate_mode.startswith("🇯🇵 2"):
+            import pykakasi
+            k = pykakasi.kakasi()
+            for line in lines:
+                if line.strip():
+                    conv = k.convert(line)
+                    new_line = "".join([item['hepburn'] for item in conv])
+                    new_lines.append(new_line)
+                else:
+                    new_lines.append(line)
+        elif transliterate_mode.startswith("🇨🇳 3"):
+            from pypinyin import pinyin, Style
+            for line in lines:
+                if line.strip():
+                    # pinyin returns a list of lists, we join them
+                    py_list = pinyin(line, style=Style.NORMAL)
+                    new_line = "".join([item[0] + " " if item[0].isascii() == False else item[0] for item in py_list])
+                    new_lines.append(new_line)
+                else:
+                    new_lines.append(line)
+                    
+        with open(lrc_path, 'w', encoding='utf-8') as f:
+            f.writelines(new_lines)
+    except Exception as e:
+        console.print(f"[dim yellow]⚠️ Gagal melakukan transliterasi pada {os.path.basename(lrc_path)}: {e}[/dim yellow]")
+
+def fetch_synced_lyrics(title, lrc_path, sync_huawei, transliterate_mode="❌ 1"):
     """Menggunakan library pihak ketiga (syncedlyrics) untuk mendapatkan lirik Studio Quality tanpa diblokir YouTube"""
     try:
         # Hapus teks dalam kurung siku/biasa yang mengganggu pencarian lirik (e.g., "[Rainych]", "(Official Video)")
@@ -99,6 +135,7 @@ def fetch_synced_lyrics(title, lrc_path, sync_huawei):
         if lrc_text:
             with open(lrc_path, 'w', encoding='utf-8') as f:
                 f.write(lrc_text)
+            process_transliteration(lrc_path, transliterate_mode)
             if sync_huawei:
                 sync_huawei_lrc(lrc_path)
             return True
@@ -133,7 +170,18 @@ def run_retrofit():
     if "PREFIX" in os.environ and "com.termux" in os.environ.get("PREFIX", ""):
         sync_huawei = questionary.confirm("📱 Aktifkan Sinkronisasi Lirik khusus Huawei/HarmonyOS (Kopi ke folder Music/Musiclrc)?", default=False, style=custom_theme).ask()
 
-    # Langkah 0: Perbaiki (Rename) file LRC lama dan Sync ke Huawei
+    console.print()
+    transliterate = questionary.select(
+        "🔤 Ubah Huruf Asing (Jepang/Mandarin) ke Tulisan Latin/Biasa (Romaji/Pinyin)?",
+        choices=[
+            "❌ 1. Biarkan Aslinya (Jangan diubah)",
+            "🇯🇵 2. Ya, Ubah Huruf Jepang ke Romaji (Khusus Lagu Jepang/Anime)",
+            "🇨🇳 3. Ya, Ubah Huruf Mandarin ke Pinyin (Khusus Lagu China)"
+        ],
+        style=custom_theme
+    ).ask()
+
+    # Langkah 0: Perbaiki (Rename) file LRC lama, Terapkan Transliterasi, dan Sync ke Huawei
     fixed_lrc_count = 0
     for lrc_file in glob.glob(os.path.join(target_folder, "**", "*.lrc"), recursive=True):
         parts = lrc_file.rsplit('.', 2)
@@ -146,11 +194,13 @@ def run_retrofit():
                     continue
                 os.remove(new_path)
             shutil.move(lrc_file, new_path)
+            process_transliteration(new_path, transliterate)
             if sync_huawei:
                 sync_huawei_lrc(new_path)
             fixed_lrc_count += 1
         else:
-            # Jika namanya sudah benar, tetap sync ke Huawei
+            # Jika namanya sudah benar, terapkan transliterasi lalu sync
+            process_transliteration(lrc_file, transliterate)
             if sync_huawei:
                 sync_huawei_lrc(lrc_file)
                 
@@ -227,7 +277,7 @@ def run_retrofit():
             # Tarik lirik menggunakan library API tanpa mempedulikan blokir YouTube
             huawei_lrc_path = os.path.join(str(Path.home()), "storage", "shared", "Music", "Musiclrc", f"{title}.lrc")
             if not os.path.exists(lrc_path) and not (sync_huawei and os.path.exists(huawei_lrc_path)):
-                fetch_synced_lyrics(title, lrc_path, sync_huawei)
+                fetch_synced_lyrics(title, lrc_path, sync_huawei, transliterate)
                     
             # Cari Cover Art hasil download (bisa .jpg, .webp)
             temp_cover_glob = glob.glob(os.path.join(dir_path, f"temp_meta_{title}*.webp")) + glob.glob(os.path.join(dir_path, f"temp_meta_{title}*.jpg"))
@@ -419,8 +469,31 @@ def run_cli():
         console.print()
         anti_duplicate = questionary.confirm("🛡️ Aktifkan Anti-Duplikat (Lewati lagu lama)?", default=True, style=custom_theme).ask()
         console.print()
-        download_lyrics = questionary.confirm("🎤 Download & Sinkronisasi Lirik (.lrc)?", default=True, style=custom_theme).ask()
+        lyrics_mode = questionary.select(
+            "📝 Pilih Sumber & Mesin Lirik (Sangat Penting):",
+            choices=[
+                "🎧 1. Mesin Spotify/Musixmatch (Anti-Blokir YT) - Terbaik untuk Lagu Asli (Original)",
+                "📺 2. Mesin YouTube Subtitles (Rawan 429) - Terbaik untuk Lagu Cover (Timing 100% Akurat)",
+                "❌ 3. Jangan download lirik"
+            ],
+            style=custom_theme
+        ).ask()
         
+        download_lyrics = not lyrics_mode.startswith("❌ 3")
+        
+        transliterate = "❌ 1"
+        if download_lyrics:
+            console.print()
+            transliterate = questionary.select(
+                "🔤 Ubah Huruf Asing (Jepang/Mandarin) ke Tulisan Latin/Biasa (Romaji/Pinyin)?",
+                choices=[
+                    "❌ 1. Biarkan Aslinya (Jangan diubah)",
+                    "🇯🇵 2. Ya, Ubah Huruf Jepang ke Romaji (Khusus Lagu Jepang/Anime)",
+                    "🇨🇳 3. Ya, Ubah Huruf Mandarin ke Pinyin (Khusus Lagu China)"
+                ],
+                style=custom_theme
+            ).ask()
+            
         sync_huawei = False
         if download_lyrics and "PREFIX" in os.environ and "com.termux" in os.environ.get("PREFIX", ""):
             console.print()
@@ -471,6 +544,11 @@ def run_cli():
             ydl_opts['writethumbnail'] = True
             pp.append({'key': 'EmbedThumbnail', 'already_have_thumbnail': False})
             
+        if lyrics_mode.startswith("📺 2"):
+            ydl_opts['writesubtitles'] = True
+            ydl_opts['subtitleslangs'] = ['id', 'en', 'ja', 'ko', 'all']
+            pp.append({'key': 'FFmpegSubtitlesConvertor', 'format': 'lrc'})
+            
         ydl_opts['postprocessors'] = pp
         if max_songs: ydl_opts['playlistend'] = max_songs
 
@@ -502,15 +580,34 @@ def run_cli():
                     
                 # Fetch Lirik via API (Bypass YouTube)
                 if download_lyrics:
-                    progress.update(main_task, description="[cyan]Menarik Lirik Kualitas Studio (Bypass Blokir YT)...", total=None)
+                    progress.update(main_task, description="[cyan]Memproses Lirik & Transliterasi...", total=None)
+                    
+                    # 1. Bersihkan file lirik berakhiran .en.lrc atau .ja.lrc menjadi .lrc (Bawaan YT)
+                    if lyrics_mode.startswith("📺 2"):
+                        for lrc_file in glob.glob(os.path.join(output_dir, "**", "*.lrc"), recursive=True):
+                            parts = lrc_file.rsplit('.', 2)
+                            if len(parts) == 3 and len(parts[1]) <= 3:
+                                new_path = f"{parts[0]}.lrc"
+                                if os.path.exists(new_path):
+                                    os.remove(new_path)
+                                shutil.move(lrc_file, new_path)
+
+                    # 2. Proses API / Transliterasi / Copy ke Huawei
                     for root, _, files in os.walk(output_dir):
                         for file in files:
                             if file.endswith('.mp3') or file.endswith('.flac') or file.endswith('.wav'):
                                 song_title = os.path.splitext(file)[0]
                                 lrc_path = os.path.join(root, f"{song_title}.lrc")
-                                if not os.path.exists(lrc_path):
-                                    fetch_synced_lyrics(song_title, lrc_path, sync_huawei)
-
+                                
+                                # Jika lirik belum ada dan kita pakai Mode 1 (Spotify)
+                                if lyrics_mode.startswith("🎧 1") and not os.path.exists(lrc_path):
+                                    fetch_synced_lyrics(song_title, lrc_path, sync_huawei, transliterate)
+                                    
+                                # Jika lirik sudah ada (hasil dari YT atau baru saja ditarik), terapkan transliterasi & sync
+                                elif os.path.exists(lrc_path):
+                                    process_transliteration(lrc_path, transliterate)
+                                    if sync_huawei:
+                                        sync_huawei_lrc(lrc_path)
                 progress.update(main_task, description="[bold green]✨ Seluruh tugas selesai!", completed=100, total=100)
             except Exception as e:
                 progress.stop()

@@ -3,3 +3,5 @@ rich>=13.0.0
 mutagen>=1.47.0
 questionary>=2.0.1
 syncedlyrics>=1.0.1
+pykakasi>=2.3.0
+pypinyin>=0.51.0
