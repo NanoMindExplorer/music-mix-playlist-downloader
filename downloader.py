@@ -119,13 +119,16 @@ def run_retrofit():
             temp_outtmpl = os.path.join(dir_path, f"temp_meta_{title}.%(ext)s")
             
             ydl_opts = {
-                'format': 'bestaudio/best', # Butuh format untuk bypass beberapa metadata extraction
-                'skip_download': True,      # JANGAN download audionos, hemat kuota
+                'format': 'bestaudio/best',
+                'skip_download': True,
                 'writethumbnail': True,
                 'writesubtitles': True,
                 'writeautomaticsub': True,
                 'subtitleslangs': ['id', 'en', 'all'],
-                'sleep_interval_subtitles': 1, # Jeda 1 detik agar tidak terkena limitasi (HTTP 429) YouTube
+                'sleep_interval_requests': 1,  # Jeda aman saat ekstraksi data
+                'sleep_interval': 2,           # Jeda acak minimal 2 detik antar tugas
+                'max_sleep_interval': 5,       # Jeda acak maksimal 5 detik (seperti aktivitas manusia)
+                'sleep_interval_subtitles': 1,
                 'outtmpl': temp_outtmpl,
                 'quiet': True,
                 'no_warnings': True,
@@ -278,6 +281,9 @@ def run_cli():
             'noplaylist': False,
             'ignoreerrors': True,
             'geo_bypass': True,
+            'sleep_interval_requests': 1,  # Jeda aman saat ekstraksi list lagu
+            'sleep_interval': 2,           # Jeda acak minimal 2 detik sebelum unduh
+            'max_sleep_interval': 5,       # Jeda acak maksimal 5 detik (menghindari deteksi bot)
             'quiet': True,
             'no_warnings': True,
             'logger': YTDLPLogger(),
