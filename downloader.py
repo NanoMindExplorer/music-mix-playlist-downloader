@@ -287,7 +287,21 @@ def run_retrofit():
         return
         
     console.print(f"[bold green]✅ Ditemukan {len(audio_files)} file musik.[/bold green]")
-    start = questionary.confirm("▶️ Mulai proses injeksi massal (Pencarian YT & Download Lirik/Cover)?", default=True, style=custom_theme).ask()
+    target_mode = questionary.select(
+        "🎯 Pilih Target Injeksi / Perbaikan:",
+        choices=[
+            "✨ 1. Perbaiki Lirik & Cover Art (Lengkap)",
+            "📝 2. Perbaiki Lirik Saja (Abaikan Cover)",
+            "🖼️ 3. Perbaiki Cover Art Saja (Abaikan Lirik)"
+        ],
+        style=custom_theme
+    ).ask()
+    
+    force_overwrite_lrc = False
+    if target_mode.startswith("✨ 1") or target_mode.startswith("📝 2"):
+        force_overwrite_lrc = questionary.confirm("⚠️ Hapus & Timpa file lirik (.lrc) lama yang mungkin salah timing?", default=False, style=custom_theme).ask()
+        
+    start = questionary.confirm("▶️ Mulai eksekusi sekarang?", default=True, style=custom_theme).ask()
     if not start: return
     
     # Progress UI
@@ -333,6 +347,7 @@ def run_retrofit():
             
             if lyrics_mode.startswith("📺 2"):
                 ydl_opts['writesubtitles'] = True
+                ydl_opts['writeautomaticsub'] = True
                 ydl_opts['subtitleslangs'] = ['id', 'en', 'ja', 'ko', 'all']
                 ydl_opts['postprocessors'] = [{'key': 'FFmpegSubtitlesConvertor', 'format': 'lrc'}]
                 
@@ -343,42 +358,50 @@ def run_retrofit():
             except Exception:
                 pass
                 
-            # Tangani lirik hasil unduhan YouTube (jika menggunakan Mode 2)
-            if lyrics_mode.startswith("📺 2"):
-                for yt_lrc in glob.glob(os.path.join(dir_path, f"temp_meta_{title}*.lrc")):
-                    if os.path.exists(lrc_path): os.remove(lrc_path)
-                    shutil.move(yt_lrc, lrc_path)
+            # Hapus lirik lama jika diminta
+            if force_overwrite_lrc and os.path.exists(lrc_path):
+                os.remove(lrc_path)
             
-            # Jika lirik belum ada dan kita pakai Mode 1 (Spotify)
-            huawei_lrc_path = os.path.join(str(Path.home()), "storage", "shared", "Music", "Musiclrc", f"{title}.lrc")
-            if lyrics_mode.startswith("🎧 1") and not os.path.exists(lrc_path) and not (sync_huawei and os.path.exists(huawei_lrc_path)):
-                fetch_synced_lyrics(title, lrc_path, sync_huawei, transliterate)
-            # Jika lirik sudah ada (misal dari YouTube CC Mode 2), transliterasi & sinkronisasi
-            elif os.path.exists(lrc_path):
-                process_transliteration(lrc_path, transliterate)
-                if sync_huawei:
-                    sync_huawei_lrc(lrc_path)
+            # BLOK 1: Pemrosesan Lirik
+            if not target_mode.startswith("🖼️ 3"):
+                # Tangani lirik hasil unduhan YouTube (jika menggunakan Mode 2)
+                if lyrics_mode.startswith("📺 2"):
+                    for yt_lrc in glob.glob(os.path.join(dir_path, f"temp_meta_{title}*.lrc")):
+                        if os.path.exists(lrc_path): os.remove(lrc_path)
+                        shutil.move(yt_lrc, lrc_path)
+                
+                # Jika lirik belum ada dan kita pakai Mode 1 (Spotify)
+                huawei_lrc_path = os.path.join(str(Path.home()), "storage", "shared", "Music", "Musiclrc", f"{title}.lrc")
+                if lyrics_mode.startswith("🎧 1") and not os.path.exists(lrc_path) and not (sync_huawei and os.path.exists(huawei_lrc_path)):
+                    fetch_synced_lyrics(title, lrc_path, sync_huawei, transliterate)
+                # Jika lirik sudah ada (misal dari YouTube CC Mode 2), transliterasi & sinkronisasi
+                elif os.path.exists(lrc_path):
+                    process_transliteration(lrc_path, transliterate)
+                    if sync_huawei:
+                        sync_huawei_lrc(lrc_path)
+                        
+            # BLOK 2: Pemrosesan Cover Art
+            if not target_mode.startswith("📝 2"):
+                # Cari Cover Art hasil download (bisa .jpg, .webp)
+                temp_cover_glob = glob.glob(os.path.join(dir_path, f"temp_meta_{title}*.webp")) + glob.glob(os.path.join(dir_path, f"temp_meta_{title}*.jpg"))
+                if temp_cover_glob:
+                    cover_path = temp_cover_glob[0]
                     
-            # Cari Cover Art hasil download (bisa .jpg, .webp)
-            temp_cover_glob = glob.glob(os.path.join(dir_path, f"temp_meta_{title}*.webp")) + glob.glob(os.path.join(dir_path, f"temp_meta_{title}*.jpg"))
-            if temp_cover_glob:
-                cover_path = temp_cover_glob[0]
-                
-                # Gunakan FFmpeg untuk menyuntikkan gambar ke dalam audio lama!
-                temp_audio = os.path.join(dir_path, f"temp_{filename}")
-                progress.update(main_task, description=f"[magenta]Menyuntikkan Cover: [bold white]{title[:20]}...")
-                
-                if ext == '.mp3':
-                    cmd = f'ffmpeg -y -v quiet -i "{audio_path}" -i "{cover_path}" -map 0:0 -map 1:0 -c copy -id3v2_version 3 -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" "{temp_audio}"'
-                elif ext == '.flac':
-                    cmd = f'ffmpeg -y -v quiet -i "{audio_path}" -i "{cover_path}" -map 0:0 -map 1:0 -c copy -disposition:v attached_pic "{temp_audio}"'
-                
-                os.system(cmd)
-                
-                # Ganti file asli dengan yang sudah disuntik jika berhasil
-                if os.path.exists(temp_audio) and os.path.getsize(temp_audio) > 0:
-                    os.remove(audio_path)
-                    shutil.move(temp_audio, audio_path)
+                    # Gunakan FFmpeg untuk menyuntikkan gambar ke dalam audio lama!
+                    temp_audio = os.path.join(dir_path, f"temp_{filename}")
+                    progress.update(main_task, description=f"[magenta]Menyuntikkan Cover: [bold white]{title[:20]}...")
+                    
+                    if ext == '.mp3':
+                        cmd = f'ffmpeg -y -v quiet -i "{audio_path}" -i "{cover_path}" -map 0:0 -map 1:0 -c copy -id3v2_version 3 -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" "{temp_audio}"'
+                    elif ext == '.flac':
+                        cmd = f'ffmpeg -y -v quiet -i "{audio_path}" -i "{cover_path}" -map 0:0 -map 1:0 -c copy -disposition:v attached_pic "{temp_audio}"'
+                    
+                    os.system(cmd)
+                    
+                    # Ganti file asli dengan yang sudah disuntik jika berhasil
+                    if os.path.exists(temp_audio) and os.path.getsize(temp_audio) > 0:
+                        os.remove(audio_path)
+                        shutil.move(temp_audio, audio_path)
                     
             # Bersihkan SEMUA sisa file sampah sementara (seperti .vtt, .part, .json, .webp)
             temp_junk_glob = glob.glob(os.path.join(dir_path, f"temp_meta_{title}*"))
@@ -627,6 +650,7 @@ def run_cli():
             
         if lyrics_mode.startswith("📺 2"):
             ydl_opts['writesubtitles'] = True
+            ydl_opts['writeautomaticsub'] = True
             ydl_opts['subtitleslangs'] = ['id', 'en', 'ja', 'ko', 'all']
             pp.append({'key': 'FFmpegSubtitlesConvertor', 'format': 'lrc'})
             
