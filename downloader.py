@@ -3,10 +3,11 @@ import sys
 import shutil
 from pathlib import Path
 import yt_dlp
+import questionary
 from rich.console import Console
 from rich import box
 from rich.panel import Panel
-from rich.prompt import Prompt, IntPrompt, Confirm
+from rich.table import Table
 from rich.text import Text
 from rich.progress import (
     Progress, 
@@ -24,74 +25,101 @@ console = Console()
 class YTDLPLogger:
     """Custom Logger untuk membisukan log bawaan yt-dlp agar UI tetap bersih"""
     def debug(self, msg):
-        pass # Sembunyikan debug
+        pass
     def warning(self, msg):
-        pass # Sembunyikan warning
+        pass
     def error(self, msg):
-        # Abaikan error dari metadata/thumbnail jika format tidak mendukung (seperti WAV)
+        # Abaikan error dari metadata/thumbnail jika format tidak mendukung
         if "metadata" not in msg.lower() and "thumbnail" not in msg.lower():
             console.print(f"[bold red]❌ Error yt-dlp:[/bold red] {msg}")
 
 def check_dependencies():
-    """Mengecek apakah sistem memiliki dependensi yang diwajibkan"""
     missing = []
     if not shutil.which('ffmpeg'):
         missing.append("FFmpeg")
     return missing
 
+def print_banner():
+    console.clear()
+    banner = Text()
+    banner.append("✦ ════════════════════════════════════════════ ✦\n", style="bold cyan")
+    banner.append(" High-Fidelity & Lossless Audio Engine \n", style="italic bright_white")
+    banner.append("✦ ════════════════════════════════════════════ ✦\n\n", style="bold cyan")
+    
+    banner.append("Artfully Crafted by\n", style="dim white")
+    banner.append("✦ NanoMindExplorer ✦", style="bold bright_yellow")
+    banner.justify = "center"
+    
+    console.print(Panel(
+        banner, 
+        box=box.DOUBLE, 
+        border_style="bold magenta", 
+        padding=(1, 4),
+        title="[bold bright_white on magenta] 🎵 YT AUDIO DOWNLOADER PRO [/bold bright_white on magenta]",
+        title_align="center",
+        subtitle="[bold white]v2.0[/bold white] [dim]• Interactive CLI[/dim]",
+        subtitle_align="center"
+    ))
+    console.print()
+
 def run_cli():
-    # 1. Pengecekan Dependensi Secara Proaktif
+    # 1. Pengecekan Dependensi
     missing_deps = check_dependencies()
     if missing_deps:
         console.print(Panel(
             f"[bold red]Dependensi Sistem Hilang![/bold red]\n\n"
             f"Aplikasi ini membutuhkan [bold yellow]{', '.join(missing_deps)}[/bold yellow] untuk melakukan konversi audio.\n"
-            f"Silakan install terlebih dahulu.\n\n"
-            f"- Ubuntu/Debian: sudo apt install ffmpeg\n"
-            f"- Windows: winget install ffmpeg\n"
-            f"- Mac: brew install ffmpeg",
+            f"Silakan install FFmpeg terlebih dahulu.",
             title="⚠️ Sistem Belum Siap", border_style="red"
         ))
         sys.exit(1)
 
-    while True:
-        # 2. UI yang Bersih, Elegan, dan Artistik
-        console.clear()
-        
-        banner = Text()
-        banner.append("✦ ════════════════════════════════════════════ ✦\n", style="bold cyan")
-        banner.append(" High-Fidelity & Lossless Audio Engine \n", style="italic bright_white")
-        banner.append("✦ ════════════════════════════════════════════ ✦\n\n", style="bold cyan")
-        
-        banner.append("Artfully Crafted by\n", style="dim white")
-        banner.append("✦ NanoMindExplorer ✦", style="bold bright_yellow")
-        banner.justify = "center"
-        
-        console.print(Panel(
-            banner, 
-            box=box.DOUBLE, 
-            border_style="bold magenta", 
-            padding=(1, 4),
-            title="[bold bright_white on magenta] 🎵 YT AUDIO DOWNLOADER PRO [/bold bright_white on magenta]",
-            title_align="center",
-            subtitle="[bold white]v1.1[/bold white] [dim]• Open Source CLI[/dim]",
-            subtitle_align="center"
-        ))
+    # Styling modern untuk Menu Questionary (Cyberpunk / Modern Theme)
+    custom_theme = questionary.Style([
+        ('qmark', 'fg:#00ffff bold'),       # Simbol ? (Cyan)
+        ('question', 'bold white'),         # Teks Pertanyaan (Putih)
+        ('answer', 'fg:#00ff00 bold'),      # Jawaban (Hijau)
+        ('pointer', 'fg:#ff00ff bold'),     # Panah pilihan (Magenta)
+        ('highlighted', 'fg:#ff00ff bold'), # Pilihan saat ini tersorot (Magenta)
+        ('selected', 'fg:#00ff00'),         # Pilihan terpilih
+        ('instruction', 'fg:#808080 italic')# Instruksi tambahan (Abu-abu)
+    ])
 
-        # 3. Validasi URL / Pencarian
-        url_or_search = Prompt.ask("\n[bold yellow]🔗 Masukkan URL YouTube ATAU Ketik Judul Lagu[/bold yellow]").strip()
+    while True:
+        print_banner()
+
+        # 1. URL / Pencarian (Input Teks Interaktif)
+        url_or_search = questionary.text(
+            "Masukkan URL YouTube ATAU Ketik Judul Lagu:",
+            style=custom_theme
+        ).ask()
+        
         if not url_or_search:
             console.print("[red]⚠️ Input tidak boleh kosong![/red]")
-            Confirm.ask("Tekan Enter untuk mengulang...", default=True)
+            import time; time.sleep(1)
             continue
             
+        url_or_search = url_or_search.strip()
         is_search = not (url_or_search.startswith("http://") or url_or_search.startswith("https://") or url_or_search.startswith("www."))
             
-        limit_choice = Confirm.ask(f"[bold yellow]❓ Batasi jumlah lagu yang diunduh {'dari hasil pencarian ' if is_search else 'dari playlist '}ini?[/bold yellow]", default=False)
-        max_songs = IntPrompt.ask("[bold yellow]🎵 Berapa maksimal lagu yang ingin diunduh?[/bold yellow]", default=10) if limit_choice else None
+        # 2. Batasan Lagu (Konfirmasi Y/N)
+        limit_choice = questionary.confirm(
+            f"Batasi jumlah lagu yang diunduh {'dari hasil pencarian' if is_search else 'dari playlist'} ini?",
+            default=False,
+            style=custom_theme
+        ).ask()
+        
+        max_songs = None
+        if limit_choice:
+            while True:
+                limit_input = questionary.text("Berapa maksimal lagu yang ingin diunduh? (Masukkan Angka):", style=custom_theme).ask()
+                if limit_input and limit_input.isdigit() and int(limit_input) > 0:
+                    max_songs = int(limit_input)
+                    break
+                else:
+                    console.print("[red]⚠️ Harap masukkan angka yang valid![/red]")
         
         if is_search:
-            # Jika berupa teks, format menggunakan sintaks ytsearch bawaan yt-dlp
             search_limit = max_songs if max_songs else 1
             final_target = f"ytsearch{search_limit}:{url_or_search}"
             display_target = f"Pencarian: '{url_or_search}' (Top {search_limit} Hasil)"
@@ -99,29 +127,33 @@ def run_cli():
             final_target = url_or_search
             display_target = url_or_search
         
-        # 4. Pilihan Format Menggunakan Data Structure yang Solid
-        console.print("\n[bold cyan]Pilihan Kualitas Audio:[/bold cyan]")
-        console.print("  [1] MP3 (320kbps)  - Default (Kualitas Tinggi, Ukuran Ringan)")
-        console.print("  [2] FLAC (Lossless)- Best Quality murni tanpa kompresi (Ukuran Besar)")
-        console.print("  [3] WAV (Uncompressed) - Kualitas Mentah/Studio (Sangat Besar, No Cover Art)")
-        console.print("  [4] Original Audio - Format bawaan YouTube (Opus/M4A) tanpa konversi")
-        
-        format_choice = Prompt.ask("[bold yellow]Pilih format (1/2/3/4)[/bold yellow]", choices=["1", "2", "3", "4"], default="1")
-        
-        format_map = {
-            "1": {"codec": "mp3", "quality": "320", "name": "MP3 (320kbps)"},
-            "2": {"codec": "flac", "quality": None, "name": "FLAC (Lossless)"},
-            "3": {"codec": "wav", "quality": None, "name": "WAV (Uncompressed)"},
-            "4": {"codec": "best", "quality": None, "name": "Original Audio (Best)"},
+        # 3. Kualitas Audio menggunakan Selektor Interaktif (Arrow keys)
+        console.print()
+        format_options = {
+            "MP3 (320kbps) - Default (Kualitas Tinggi, Ukuran Ringan)": {"codec": "mp3", "quality": "320", "name": "MP3 (320kbps)"},
+            "FLAC (Lossless) - Best Quality murni tanpa kompresi": {"codec": "flac", "quality": None, "name": "FLAC (Lossless)"},
+            "WAV (Uncompressed) - Kualitas Mentah/Studio": {"codec": "wav", "quality": None, "name": "WAV (Uncompressed)"},
+            "Original Audio - Format bawaan YouTube (Opus/M4A)": {"codec": "best", "quality": None, "name": "Original Audio (Best)"}
         }
-        selected_fmt = format_map[format_choice]
+        
+        selected_key = questionary.select(
+            "Pilih Kualitas Audio yang diinginkan (Gunakan Arrow Keys ⬆️ ⬇️):",
+            choices=list(format_options.keys()),
+            style=custom_theme,
+            use_indicator=True
+        ).ask()
+        
+        selected_fmt = format_options[selected_key]
 
-        # 5. Fitur Anti-Duplikat
-        console.print("")
-        anti_duplicate = Confirm.ask("[bold yellow]🛡️ Aktifkan fitur Anti-Duplikat (Lewati otomatis lagu yang pernah diunduh)?[/bold yellow]", default=True)
+        # 4. Fitur Anti-Duplikat
+        console.print()
+        anti_duplicate = questionary.confirm(
+            "🛡️ Aktifkan fitur Anti-Duplikat (Lewati otomatis lagu yang pernah diunduh)?",
+            default=True,
+            style=custom_theme
+        ).ask()
 
-        # Menetapkan path ke folder Download utama
-        # Deteksi pintar jika dijalankan di dalam Termux (Android)
+        # Path Logika
         if "PREFIX" in os.environ and "com.termux" in os.environ.get("PREFIX", ""):
             output_dir = str(Path.home() / "storage" / "downloads" / "YT_Downloader")
         else:
@@ -129,68 +161,61 @@ def run_cli():
             
         archive_file = os.path.join(output_dir, "archive.txt")
         
-        # Panel Ringkasan
-        summary = Text()
-        summary.append("Target       : ", style="bold white")
-        summary.append(f"{display_target}\n", style="cyan")
-        summary.append("Batas Lagu   : ", style="bold white")
-        summary.append(f"{max_songs if max_songs else 'Semua (Tanpa Batas)'}\n", style="green")
-        summary.append("Format       : ", style="bold white")
-        summary.append(f"{selected_fmt['name']}\n", style="magenta")
-        summary.append("ID3 & Cover  : ", style="bold white")
-        summary.append("✅ Aktif (Embed Metadata & Thumbnail)\n" if selected_fmt['codec'] != 'wav' else "⚠️ Tidak Aktif (WAV tidak mendukung Cover)\n", style="green" if selected_fmt['codec'] != 'wav' else "yellow")
-        summary.append("Anti-Duplikat: ", style="bold white")
-        summary.append("✅ Aktif\n" if anti_duplicate else "❌ Tidak Aktif\n", style="green" if anti_duplicate else "red")
-        summary.append("Folder       : ", style="bold white")
-        summary.append(f"{output_dir}\n", style="yellow")
+        # 5. Tabel Dashboard Ringkasan
+        console.print("\n")
+        table = Table(title="📋 [bold bright_white]Konfigurasi Sistem Unduhan[/bold bright_white]", box=box.ROUNDED, border_style="cyan")
+        table.add_column("Parameter", justify="right", style="cyan", no_wrap=True)
+        table.add_column("Nilai", style="magenta")
+
+        table.add_row("🎯 Target", display_target)
+        table.add_row("🔢 Batas Lagu", str(max_songs) if max_songs else "Semua (Tanpa Batas)")
+        table.add_row("🎵 Format Audio", selected_fmt['name'])
         
-        console.print(Panel(summary, title="[bold blue]Ringkasan Tugas[/bold blue]", border_style="blue"))
+        is_wav = selected_fmt['codec'] == 'wav'
+        table.add_row("🖼️ ID3 & Cover Art", "[green]✅ Aktif[/green]" if not is_wav else "[yellow]⚠️ Tidak Mendukung (WAV)[/yellow]")
+        table.add_row("🛡️ Anti-Duplikat", "[green]✅ Aktif[/green]" if anti_duplicate else "[red]❌ Nonaktif[/red]")
+        table.add_row("📁 Folder Simpan", f"[yellow]{output_dir}[/yellow]")
         
-        if not Confirm.ask("[bold green]▶️ Mulai unduhan sekarang?[/bold green]", default=True):
-            console.print("[yellow]Unduhan dibatalkan pengguna.[/yellow]")
+        console.print(table)
+        console.print()
+        
+        start = questionary.confirm("▶️ Mulai eksekusi unduhan sekarang?", default=True, style=custom_theme).ask()
+        if not start:
+            console.print("[yellow]Unduhan dibatalkan pengguna.[/yellow]\n")
+            import time; time.sleep(1)
             continue
 
-        # 5. Persiapan Engine yt-dlp
+        # Eksekusi yt-dlp
         os.makedirs(output_dir, exist_ok=True)
-
+        
         ydl_opts = {
             'format': 'bestaudio/best',
             'outtmpl': f'{output_dir}/%(playlist_title)s/%(title)s.%(ext)s',
             'noplaylist': False,
-            'ignoreerrors': True,     # Lanjutkan walau ada video private/copyright
-            'geo_bypass': True,       # Bypass pemblokiran wilayah/Copyright (Geo-Restriction)
-            'quiet': True,            # Matikan log default yang berantakan
-            'no_warnings': True,      # Sembunyikan warning
-            'logger': YTDLPLogger(),  # Gunakan custom logger
+            'ignoreerrors': True,
+            'geo_bypass': True,
+            'quiet': True,
+            'no_warnings': True,
+            'logger': YTDLPLogger(),
             'extract_flat': False,
         }
-        
         if anti_duplicate:
             ydl_opts['download_archive'] = archive_file
 
-        # --- KONFIGURASI METADATA & COVER ART (THUMBNAIL) ---
         pp = [{'key': 'FFmpegExtractAudio', 'preferredcodec': selected_fmt['codec']}]
-        
-        # Set bitrate jika tersedia (contoh: MP3 320k)
         if selected_fmt['quality']:
             pp[0]['preferredquality'] = selected_fmt['quality']
             
-        # 1. Selalu tambahkan ID3 Metadata (Judul, Artis, Channel)
         pp.append({'key': 'FFmpegMetadata', 'add_metadata': True})
-        
-        # 2. Tambahkan Embed Cover Art (Thumbnail) jika formatnya mendukung
-        # WAV format sangat tidak disarankan menggunakan embedded album art karena standar yang tidak baku
-        if selected_fmt['codec'] != 'wav':
+        if not is_wav:
             ydl_opts['writethumbnail'] = True
             pp.append({'key': 'EmbedThumbnail', 'already_have_thumbnail': False})
             
         ydl_opts['postprocessors'] = pp
-        
         if max_songs:
             ydl_opts['playlistend'] = max_songs
 
-        # 6. Render UI Progress Bar yang Sangat Modern
-        console.print("") # Spasi
+        console.print("")
         with Progress(
             SpinnerColumn(spinner_name="dots2", style="cyan"),
             TextColumn("[progress.description]{task.description}"),
@@ -203,49 +228,35 @@ def run_cli():
             expand=False
         ) as progress:
             
-            # Task indeterminate untuk fase analisis playlist
             main_task = progress.add_task("[cyan]Menganalisis URL & Metadata...", total=None)
             
-            # Hook untuk mengupdate Progress Bar secara Real-Time
             def download_hook(d):
                 status = d['status']
                 if status == 'downloading':
                     total = d.get('total_bytes') or d.get('total_bytes_estimate', 0)
                     downloaded = d.get('downloaded_bytes', 0)
-                    
                     filename = os.path.basename(d.get('filename', 'Lagu'))
                     if len(filename) > 35:
                         filename = filename[:32] + "..."
-                        
-                    progress.update(
-                        main_task,
-                        description=f"[cyan]Mengunduh: [bold white]{filename}",
-                        total=total if total > 0 else None,
-                        completed=downloaded
-                    )
+                    progress.update(main_task, description=f"[cyan]Mengunduh: [bold white]{filename}", total=total if total > 0 else None, completed=downloaded)
                 elif status == 'finished':
                     filename = os.path.basename(d.get('filename', 'Lagu'))
                     if len(filename) > 35:
                         filename = filename[:32] + "..."
-                    # Ubah status ke indeterminate saat merender audio, cover art, dan metadata
-                    progress.update(main_task, description=f"[green]Menyematkan Metadata & Cover Art: [bold white]{filename}", total=None, completed=0)
+                    progress.update(main_task, description=f"[green]Memproses Media: [bold white]{filename}", total=None, completed=0)
 
             ydl_opts['progress_hooks'] = [download_hook]
 
-            # Eksekusi yt-dlp
             try:
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     ydl.download([final_target])
-                
-                # Selesaikan task progress
                 progress.update(main_task, description="[bold green]✨ Seluruh tugas selesai!", completed=100, total=100)
-                
             except Exception as e:
                 progress.stop()
-                console.print(f"\n[bold red]❌ Terjadi kegagalan fatal pada engine unduhan:[/bold red] {e}")
+                console.print(f"\n[bold red]❌ Terjadi kegagalan fatal:[/bold red] {e}")
 
-        # Pilihan Looping
-        if not Confirm.ask("\n[bold cyan]🔄 Ingin mendownload URL/Playlist lain?[/bold cyan]", default=False):
+        console.print()
+        if not questionary.confirm("🔄 Ingin mengunduh sesuatu yang lain?", default=False, style=custom_theme).ask():
             console.print("\n[bold magenta]Terima kasih telah menggunakan aplikasi ini! Sampai jumpa 👋[/bold magenta]\n")
             break
 
