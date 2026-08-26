@@ -256,6 +256,87 @@ def run_retrofit():
             
         progress.update(main_task, description="[bold green]✨ Proses Retrofit Selesai!", completed=len(audio_files))
 
+def run_organizer():
+    console.print(f"\n[bold cyan]📁 Mode 3: Pengatur Otomatis (Auto-Organizer)[/bold cyan]")
+    console.print("[white]Sistem akan mencari lagu & lirik yang Anda unduh secara manual di folder Downloads, lalu menyamakan namanya dan memindahkannya ke folder Huawei Music secara otomatis![/white]\n")
+    
+    is_termux = "PREFIX" in os.environ and "com.termux" in os.environ.get("PREFIX", "")
+    if is_termux:
+        downloads_dir = str(Path.home() / "storage" / "downloads")
+        music_dir = str(Path.home() / "storage" / "shared" / "Music")
+        lrc_dir = os.path.join(music_dir, "Musiclrc")
+    else:
+        downloads_dir = str(Path.home() / "Downloads")
+        music_dir = os.path.join(downloads_dir, "Music")
+        lrc_dir = os.path.join(music_dir, "Musiclrc")
+
+    if not os.path.exists(downloads_dir):
+        console.print("[bold red]❌ Folder Downloads tidak ditemukan![/bold red]")
+        return
+
+    # Cari file mp3 dan lrc di root Downloads
+    mp3_files = [f for f in os.listdir(downloads_dir) if f.lower().endswith('.mp3')]
+    lrc_files = [f for f in os.listdir(downloads_dir) if f.lower().endswith('.lrc')]
+    
+    if not mp3_files and not lrc_files:
+        console.print("[dim yellow]⚠️ Tidak ditemukan file MP3 atau LRC mandiri di folder Downloads Anda.[/dim yellow]")
+        return
+        
+    console.print(f"[bold green]✅ Ditemukan {len(mp3_files)} MP3 dan {len(lrc_files)} file LRC di folder Downloads.[/bold green]")
+    
+    if not questionary.confirm("▶️ Mulai proses perapian (Ganti Nama Otomatis & Pindahkan ke Folder Musik)?", default=True, style=custom_theme).ask():
+        return
+
+    os.makedirs(music_dir, exist_ok=True)
+    os.makedirs(lrc_dir, exist_ok=True)
+    
+    from rapidfuzz import fuzz
+    
+    moved_mp3 = 0
+    moved_lrc = 0
+
+    with console.status("[cyan]Merapikan file Anda..."):
+        # Pindahkan dan ganti nama LRC agar cocok dengan MP3 menggunakan AI String Matching (RapidFuzz)
+        for lrc in lrc_files:
+            lrc_path = os.path.join(downloads_dir, lrc)
+            lrc_name = os.path.splitext(lrc)[0]
+            
+            best_match = None
+            best_score = 0
+            for mp3 in mp3_files:
+                mp3_name = os.path.splitext(mp3)[0]
+                score = fuzz.ratio(lrc_name.lower(), mp3_name.lower())
+                if score > best_score:
+                    best_score = score
+                    best_match = mp3_name
+            
+            if best_match and best_score > 50:
+                # Ganti nama lrc sama persis dengan mp3
+                new_lrc_name = f"{best_match}.lrc"
+                target_lrc_path = os.path.join(lrc_dir, new_lrc_name)
+                # Timpa jika ada
+                if os.path.exists(target_lrc_path): os.remove(target_lrc_path)
+                shutil.move(lrc_path, target_lrc_path)
+                moved_lrc += 1
+            else:
+                # Jika tidak ada yang cocok, pindahkan dengan nama aslinya
+                target_lrc_path = os.path.join(lrc_dir, lrc)
+                if os.path.exists(target_lrc_path): os.remove(target_lrc_path)
+                shutil.move(lrc_path, target_lrc_path)
+                moved_lrc += 1
+
+        # Pindahkan MP3
+        for mp3 in mp3_files:
+            mp3_path = os.path.join(downloads_dir, mp3)
+            target_mp3_path = os.path.join(music_dir, mp3)
+            if os.path.exists(target_mp3_path): os.remove(target_mp3_path)
+            shutil.move(mp3_path, target_mp3_path)
+            moved_mp3 += 1
+            
+    console.print(f"\n[bold green]✨ Proses Perapian Selesai![/bold green]")
+    console.print(f"🎵 {moved_mp3} lagu dipindahkan ke: [yellow]{music_dir}[/yellow]")
+    console.print(f"🎤 {moved_lrc} lirik dipindahkan ke: [yellow]{lrc_dir}[/yellow]\n")
+
 def run_cli():
     missing_deps = check_dependencies()
     if missing_deps:
@@ -271,18 +352,22 @@ def run_cli():
         print_banner()
 
         # PILIHAN MODE
-        mode = questionary.select(
-            "Pilih Mode Operasi Aplikasi:",
-            choices=[
-                "📥 1. Mode Utama (Download Lagu/Playlist dari YouTube)",
-                "🛠️ 2. Mode Retrofit (Otomatis Cari & Suntik Lirik/Cover ke File Lama)"
-            ],
-            style=custom_theme,
-            use_indicator=True
-        ).ask()
+        mode_choices = {
+            "📥 1. Mode Utama (Download Lagu/Playlist dari YouTube)": 1,
+            "🛠️ 2. Mode Retrofit (Otomatis Cari & Suntik Lirik/Cover ke File Lama)": 2,
+            "📁 3. Mode Pengatur Otomatis (Rapikan File Lirik/MP3 Unduhan Manual)": 3
+        }
+        selected_mode = questionary.select("Pilih Mode Operasi Aplikasi:", choices=list(mode_choices.keys()), style=custom_theme, use_indicator=True).ask()
+        mode = mode_choices[selected_mode]
         
-        if mode.startswith("🛠️"):
+        if mode == 2:
             run_retrofit()
+            if not questionary.confirm("\n🔄 Kembali ke menu utama?", default=True, style=custom_theme).ask():
+                console.print("\n[bold magenta]Terima kasih telah menggunakan aplikasi ini! 👋[/bold magenta]\n")
+                break
+            continue
+        elif mode == 3:
+            run_organizer()
             if not questionary.confirm("\n🔄 Kembali ke menu utama?", default=True, style=custom_theme).ask():
                 console.print("\n[bold magenta]Terima kasih telah menggunakan aplikasi ini! 👋[/bold magenta]\n")
                 break
