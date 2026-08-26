@@ -89,7 +89,7 @@ def sync_huawei_lrc(lrc_path):
             console.print(f"[dim yellow]⚠️ Gagal sinkronisasi LRC ({os.path.basename(lrc_path)}): {e}[/dim yellow]")
 
 def process_transliteration(lrc_path, transliterate_mode):
-    """Mengubah huruf Jepang/Mandarin di dalam file LRC menjadi Romaji/Pinyin"""
+    """Mengubah huruf Jepang/Mandarin/Korea/Lainnya di dalam file LRC menjadi Romaji/Pinyin/Latin"""
     if not os.path.exists(lrc_path): return
     if transliterate_mode.startswith("❌ 1"): return
     
@@ -97,25 +97,73 @@ def process_transliteration(lrc_path, transliterate_mode):
         with open(lrc_path, 'r', encoding='utf-8') as f:
             lines = f.readlines()
             
+        import re
+        # Fungsi untuk menghapus tag waktu [00:00.00] agar tidak mengganggu deteksi bahasa
+        pure_text = " ".join([re.sub(r'\[.*?\]', '', line).strip() for line in lines if line.strip()])
+        if not pure_text: return
+        
+        # Tentukan bahasa target
+        target_lang = ""
+        if transliterate_mode.startswith("🤖 4"):
+            import langdetect
+            target_lang = langdetect.detect(pure_text)
+            # Jangan ubah jika sudah menggunakan alfabet Latin (Inggris, Indonesia, dll)
+            if target_lang in ['en', 'id', 'es', 'fr', 'de', 'it', 'nl', 'tl']: return
+        elif transliterate_mode.startswith("🇯🇵 2"):
+            target_lang = "ja"
+        elif transliterate_mode.startswith("🇨🇳 3"):
+            target_lang = "zh-cn"
+            
         new_lines = []
-        if transliterate_mode.startswith("🇯🇵 2"):
+        if target_lang == "ja":
             import pykakasi
             k = pykakasi.kakasi()
             for line in lines:
-                if line.strip():
-                    conv = k.convert(line)
-                    new_line = "".join([item['hepburn'] for item in conv])
-                    new_lines.append(new_line)
+                if line.strip() and not line.strip().startswith('['):
+                    # Hanya konversi teks liriknya, amankan tag waktu
+                    time_tag = re.match(r'\[.*?\]', line)
+                    text = re.sub(r'\[.*?\]', '', line).strip()
+                    conv = k.convert(text)
+                    new_text = "".join([item['hepburn'] for item in conv])
+                    new_lines.append(f"{time_tag.group(0) if time_tag else ''}{new_text}\n")
                 else:
                     new_lines.append(line)
-        elif transliterate_mode.startswith("🇨🇳 3"):
+                    
+        elif target_lang in ["zh-cn", "zh-tw"]:
             from pypinyin import pinyin, Style
             for line in lines:
-                if line.strip():
-                    # pinyin returns a list of lists, we join them
-                    py_list = pinyin(line, style=Style.NORMAL)
-                    new_line = "".join([item[0] + " " if item[0].isascii() == False else item[0] for item in py_list])
-                    new_lines.append(new_line)
+                if line.strip() and not line.strip().startswith('['):
+                    time_tag = re.match(r'\[.*?\]', line)
+                    text = re.sub(r'\[.*?\]', '', line).strip()
+                    py_list = pinyin(text, style=Style.NORMAL)
+                    new_text = "".join([item[0] + " " if item[0].isascii() == False else item[0] for item in py_list])
+                    new_lines.append(f"{time_tag.group(0) if time_tag else ''}{new_text}\n")
+                else:
+                    new_lines.append(line)
+                    
+        elif target_lang == "ko":
+            from korean_romanizer.romanizer import Romanizer
+            for line in lines:
+                if line.strip() and not line.strip().startswith('['):
+                    time_tag = re.match(r'\[.*?\]', line)
+                    text = re.sub(r'\[.*?\]', '', line).strip()
+                    try:
+                        new_text = Romanizer(text).romanize()
+                        new_lines.append(f"{time_tag.group(0) if time_tag else ''}{new_text}\n")
+                    except:
+                        new_lines.append(line)
+                else:
+                    new_lines.append(line)
+                    
+        else:
+            # Fallback Universal (Thailand, Rusia, Arab, dll)
+            from anyascii import anyascii
+            for line in lines:
+                if line.strip() and not line.strip().startswith('['):
+                    time_tag = re.match(r'\[.*?\]', line)
+                    text = re.sub(r'\[.*?\]', '', line).strip()
+                    new_text = anyascii(text)
+                    new_lines.append(f"{time_tag.group(0) if time_tag else ''}{new_text}\n")
                 else:
                     new_lines.append(line)
                     
@@ -172,11 +220,12 @@ def run_retrofit():
 
     console.print()
     transliterate = questionary.select(
-        "🔤 Ubah Huruf Asing (Jepang/Mandarin) ke Tulisan Latin/Biasa (Romaji/Pinyin)?",
+        "🔤 Ubah Huruf Asing (Jepang/Mandarin/Korea/Thai dll) ke Tulisan Biasa (Romaji/Pinyin/Latin)?",
         choices=[
             "❌ 1. Biarkan Aslinya (Jangan diubah)",
             "🇯🇵 2. Ya, Ubah Huruf Jepang ke Romaji (Khusus Lagu Jepang/Anime)",
-            "🇨🇳 3. Ya, Ubah Huruf Mandarin ke Pinyin (Khusus Lagu China)"
+            "🇨🇳 3. Ya, Ubah Huruf Mandarin ke Pinyin (Khusus Lagu China)",
+            "🤖 4. Deteksi Otomatis & Ubah Semua (Khusus Playlist Campur/Berbagai Negara)"
         ],
         style=custom_theme
     ).ask()
@@ -485,11 +534,12 @@ def run_cli():
         if download_lyrics:
             console.print()
             transliterate = questionary.select(
-                "🔤 Ubah Huruf Asing (Jepang/Mandarin) ke Tulisan Latin/Biasa (Romaji/Pinyin)?",
+                "🔤 Ubah Huruf Asing (Jepang/Mandarin/Korea/Thai dll) ke Tulisan Biasa (Romaji/Pinyin/Latin)?",
                 choices=[
                     "❌ 1. Biarkan Aslinya (Jangan diubah)",
                     "🇯🇵 2. Ya, Ubah Huruf Jepang ke Romaji (Khusus Lagu Jepang/Anime)",
-                    "🇨🇳 3. Ya, Ubah Huruf Mandarin ke Pinyin (Khusus Lagu China)"
+                    "🇨🇳 3. Ya, Ubah Huruf Mandarin ke Pinyin (Khusus Lagu China)",
+                    "🤖 4. Deteksi Otomatis & Ubah Semua (Khusus Playlist Campur/Berbagai Negara)"
                 ],
                 style=custom_theme
             ).ask()

@@ -5,3 +5,6 @@ questionary>=2.0.1
 syncedlyrics>=1.0.1
 pykakasi>=2.3.0
 pypinyin>=0.51.0
+langdetect>=1.0.9
+korean_romanizer>=0.28.0
+anyascii>=0.3.3
