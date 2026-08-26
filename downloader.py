@@ -21,10 +21,15 @@ from rich.progress import (
 console = Console()
 
 class YTDLPLogger:
-    def debug(self, msg): pass
-    def warning(self, msg): pass
+    """Custom Logger untuk membisukan log bawaan yt-dlp agar UI tetap bersih"""
+    def debug(self, msg):
+        pass
+    def warning(self, msg):
+        pass
     def error(self, msg):
-        if "metadata" not in msg.lower() and "thumbnail" not in msg.lower():
+        # Abaikan error ringan dari metadata, thumbnail, subtitle, atau limitasi YouTube 429 agar UI tidak hancur
+        msg_lower = msg.lower()
+        if not any(k in msg_lower for k in ["metadata", "thumbnail", "subtitles", "429", "too many requests"]):
             console.print(f"[bold red]❌ Error yt-dlp:[/bold red] {msg}")
 
 def check_dependencies():
@@ -120,6 +125,7 @@ def run_retrofit():
                 'writesubtitles': True,
                 'writeautomaticsub': True,
                 'subtitleslangs': ['id', 'en', 'all'],
+                'sleep_interval_subtitles': 1, # Jeda 1 detik agar tidak terkena limitasi (HTTP 429) YouTube
                 'outtmpl': temp_outtmpl,
                 'quiet': True,
                 'no_warnings': True,
@@ -282,6 +288,7 @@ def run_cli():
             ydl_opts['writesubtitles'] = True
             ydl_opts['writeautomaticsub'] = True
             ydl_opts['subtitleslangs'] = ['id', 'en', 'ja', 'ko', 'all']
+            ydl_opts['sleep_interval_subtitles'] = 1 # Jeda 1 detik mencegah limitasi YouTube (HTTP 429)
 
         pp = [{'key': 'FFmpegExtractAudio', 'preferredcodec': selected_fmt['codec']}]
         if selected_fmt['quality']: pp[0]['preferredquality'] = selected_fmt['quality']
