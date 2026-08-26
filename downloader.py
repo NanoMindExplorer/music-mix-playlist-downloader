@@ -74,6 +74,21 @@ def sync_huawei_lrc(lrc_path):
         except Exception as e:
             console.print(f"[dim yellow]⚠️ Gagal sinkronisasi LRC ({os.path.basename(lrc_path)}): {e}[/dim yellow]")
 
+def fetch_synced_lyrics(title, lrc_path, sync_huawei):
+    """Menggunakan library pihak ketiga (syncedlyrics) untuk mendapatkan lirik Studio Quality tanpa diblokir YouTube"""
+    try:
+        import syncedlyrics
+        lrc_text = syncedlyrics.search(title)
+        if lrc_text:
+            with open(lrc_path, 'w', encoding='utf-8') as f:
+                f.write(lrc_text)
+            if sync_huawei:
+                sync_huawei_lrc(lrc_path)
+            return True
+    except Exception:
+        pass
+    return False
+
 custom_theme = questionary.Style([
     ('qmark', 'fg:#00ffff bold'),
     ('question', 'bold white'),
@@ -171,21 +186,16 @@ def run_retrofit():
                 'format': 'bestaudio/best',
                 'skip_download': True,
                 'writethumbnail': True,
-                'writesubtitles': True,
-                'writeautomaticsub': True,
-                'subtitleslangs': ['id', 'en', 'all'],
                 'sleep_interval_requests': 1,
                 'sleep_interval': 3,           
                 'max_sleep_interval': 8,       
-                'sleep_interval_subtitles': 2,
-                'retries': 5,                  # Coba ulang 5x jika koneksi putus (Errno 104)
+                'retries': 5,
                 'file_access_retries': 5,
                 'fragment_retries': 5,
                 'outtmpl': temp_outtmpl,
                 'quiet': True,
                 'no_warnings': True,
-                'logger': YTDLPLogger(),
-                'postprocessors': [{'key': 'FFmpegSubtitlesConvertor', 'format': 'lrc'}]
+                'logger': YTDLPLogger()
             }
             
             search_query = f"ytsearch1:{title}"
@@ -193,16 +203,11 @@ def run_retrofit():
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     ydl.download([search_query])
             except Exception:
-                progress.advance(main_task)
-                continue
+                pass
                 
-            # Rename Lirik hasil download ke nama aslinya
-            temp_lrc_glob = glob.glob(os.path.join(dir_path, f"temp_meta_{title}*.lrc"))
-            for temp_lrc in temp_lrc_glob:
-                if os.path.exists(temp_lrc):
-                    shutil.move(temp_lrc, lrc_path)
-                    if sync_huawei:
-                        sync_huawei_lrc(lrc_path)
+            # Tarik lirik menggunakan library API tanpa mempedulikan blokir YouTube
+            if not os.path.exists(lrc_path):
+                fetch_synced_lyrics(title, lrc_path, sync_huawei)
                     
             # Cari Cover Art hasil download (bisa .jpg, .webp)
             temp_cover_glob = glob.glob(os.path.join(dir_path, f"temp_meta_{title}*.webp")) + glob.glob(os.path.join(dir_path, f"temp_meta_{title}*.jpg"))
@@ -353,11 +358,6 @@ def run_cli():
             'extract_flat': False,
         }
         if anti_duplicate: ydl_opts['download_archive'] = archive_file
-        if download_lyrics:
-            ydl_opts['writesubtitles'] = True
-            ydl_opts['writeautomaticsub'] = True
-            ydl_opts['subtitleslangs'] = ['id', 'en', 'ja', 'ko', 'all']
-            ydl_opts['sleep_interval_subtitles'] = 1 # Jeda 1 detik mencegah limitasi YouTube (HTTP 429)
 
         pp = [{'key': 'FFmpegExtractAudio', 'preferredcodec': selected_fmt['codec']}]
         if selected_fmt['quality']: pp[0]['preferredquality'] = selected_fmt['quality']
@@ -365,7 +365,6 @@ def run_cli():
         if not is_wav:
             ydl_opts['writethumbnail'] = True
             pp.append({'key': 'EmbedThumbnail', 'already_have_thumbnail': False})
-        if download_lyrics: pp.append({'key': 'FFmpegSubtitlesConvertor', 'format': 'lrc'})
             
         ydl_opts['postprocessors'] = pp
         if max_songs: ydl_opts['playlistend'] = max_songs
@@ -396,30 +395,16 @@ def run_cli():
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     ydl.download([final_target])
                     
-                # Fix penamaan file LRC (yt-dlp menambahkan kode bahasa seperti .id.lrc atau .en.lrc yang tidak terbaca oleh Music Player)
+                # Fetch Lirik via API (Bypass YouTube)
                 if download_lyrics:
+                    progress.update(main_task, description="[cyan]Menarik Lirik Kualitas Studio (Bypass Blokir YT)...", total=None)
                     for root, _, files in os.walk(output_dir):
                         for file in files:
-                            if file.endswith('.lrc'):
-                                parts = file.rsplit('.', 2)
-                                # Memastikan itu adalah kode bahasa bawaan yt-dlp (biasanya 2-3 huruf)
-                                if len(parts) == 3 and len(parts[1]) <= 3:
-                                    new_name = f"{parts[0]}.lrc"
-                                    old_path = os.path.join(root, file)
-                                    new_path = os.path.join(root, new_name)
-                                    # Jika sudah ada file .lrc (misal bahasa lain), timpa saja
-                                    if os.path.exists(new_path):
-                                        # Prioritaskan bahasa Indonesia ('id'), abaikan jika yg baru 'en' dan 'id' sdh ada
-                                        if parts[1] != 'id' and os.path.getsize(new_path) > 0:
-                                            os.remove(old_path)
-                                            continue
-                                        os.remove(new_path)
-                                    shutil.move(old_path, new_path)
-                                    if sync_huawei:
-                                        sync_huawei_lrc(new_path)
-                                else:
-                                    if sync_huawei:
-                                        sync_huawei_lrc(os.path.join(root, file))
+                            if file.endswith('.mp3') or file.endswith('.flac') or file.endswith('.wav'):
+                                song_title = os.path.splitext(file)[0]
+                                lrc_path = os.path.join(root, f"{song_title}.lrc")
+                                if not os.path.exists(lrc_path):
+                                    fetch_synced_lyrics(song_title, lrc_path, sync_huawei)
 
                 progress.update(main_task, description="[bold green]✨ Seluruh tugas selesai!", completed=100, total=100)
             except Exception as e:
