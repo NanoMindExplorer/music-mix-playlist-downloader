@@ -1,53 +1,50 @@
-# YT Mix & Playlist to mp3 320k downloader
+# 🎵 YT Mix & Playlist Downloader Pro
 
-Repository untuk mendownload Mix & Playlist dari YouTube dan mengkonversinya menjadi format audio berkualitas tinggi.
-Versi terbaru kini hadir dengan **Tampilan CLI Interaktif yang Modern**! 🎉
+Aplikasi CLI interaktif untuk mendownload YouTube Mix dan Playlist secara otomatis, lalu mengonversinya menjadi audio berkualitas tinggi (MP3/FLAC/WAV) langsung ke folder *Downloads* Anda.
 
-## Fitur
-- **Interactive CLI**: Tampilan terminal yang indah, berwarna, dan mudah digunakan (dibangun dengan `rich`).
-- Mendownload seluruh video dalam sebuah **YouTube Playlist** atau **YouTube Mix**.
-- **Batasi Jumlah Lagu**: Anda akan ditanya secara interaktif apakah ingin membatasi unduhan (misal: hanya 10 lagu pertama).
-- **Pilihan Kualitas Audio (Best Quality)**: Kini Anda dapat memilih format output:
-  - `MP3 (320kbps)` - Kualitas tinggi, ukuran hemat (Default)
-  - `FLAC (Lossless)` - Kualitas audio terbaik / murni tanpa kompresi yang merusak
-  - `WAV (Uncompressed)` - Kualitas mentah (studio quality)
-  - `Original Audio` - Format murni bawaan YouTube (Opus/M4A)
-- Struktur folder otomatis berdasarkan nama Playlist/Mix.
-- **Penyimpanan Otomatis**: Semua lagu kini otomatis tersimpan di folder `Downloads/YT_Downloader/` di perangkat/komputer Anda.
-- Melanjutkan unduhan jika ada video yang error (misal: video dihapus/private).
+---
 
-## Persyaratan Sistem
+## ⚡ Cara Instalasi (One-Line Install)
 
-Sebelum menjalankan script, pastikan Anda telah menginstal `Python 3` dan `FFmpeg`.
+Cukup salin (copy) dan jalankan (paste) satu baris perintah di bawah ini pada terminal sesuai dengan perangkat yang Anda gunakan. Perintah ini akan otomatis menginstal semua kebutuhan sistem, mengunduh repositori ini, dan menyiapkan aplikasinya untuk Anda.
 
-### 1. Install FFmpeg
-Script ini sangat membutuhkan `ffmpeg` untuk mengkonversi audio ke format MP3, FLAC, atau WAV.
-- **Ubuntu/Debian:** `sudo apt install ffmpeg`
-- **MacOS:** `brew install ffmpeg`
-- **Windows:** Download dari [website resmi FFmpeg](https://ffmpeg.org/download.html) atau gunakan winget: `winget install ffmpeg`
-
-### 2. Install Dependencies Python
-Gunakan pip untuk menginstal package yang dibutuhkan (`yt-dlp` dan `rich`):
+### 📱 Android (Termux)
 ```bash
-pip install -r requirements.txt
+pkg update -y && pkg install -y python ffmpeg git && git clone https://github.com/NanoMindExplorer/yt-mix-playlist-to-mp3-320k-downloader.git && cd yt-mix-playlist-to-mp3-320k-downloader && pip install -r requirements.txt
 ```
 
-## Cara Penggunaan
+### 🐧 Linux (Ubuntu/Debian)
+```bash
+sudo apt update && sudo apt install -y python3 python3-pip ffmpeg git && git clone https://github.com/NanoMindExplorer/yt-mix-playlist-to-mp3-320k-downloader.git && cd yt-mix-playlist-to-mp3-320k-downloader && pip3 install -r requirements.txt --break-system-packages
+```
 
-Cukup jalankan script `downloader.py` **tanpa parameter apapun**, dan ikuti instruksi cantik di layar terminal Anda!
+### 🪟 Windows (PowerShell)
+*(Catatan: Pastikan Anda telah menginstal Python, Git, dan FFmpeg terlebih dahulu di Windows Anda).*
+```powershell
+winget install ffmpeg; git clone https://github.com/NanoMindExplorer/yt-mix-playlist-to-mp3-320k-downloader.git; cd yt-mix-playlist-to-mp3-320k-downloader; pip install -r requirements.txt
+```
+
+---
+
+## 🚀 Cara Penggunaan
+
+Setelah instalasi selesai, pastikan Anda berada di dalam folder aplikasinya (`cd yt-mix-playlist-to-mp3-320k-downloader`), lalu jalankan perintah berikut:
 
 ```bash
 python downloader.py
 ```
 
-### Langkah Interaktif di Terminal:
-1. Anda akan diminta memasukkan `URL YouTube`.
-2. Anda akan ditanya apakah ingin membatasi jumlah unduhan lagu.
-3. Anda akan diminta memilih kualitas audio `(1: MP3, 2: FLAC, 3: WAV, 4: Original)`.
-4. Sebuah **Panel Ringkasan** akan muncul untuk memastikan pengaturan unduhan Anda.
-5. Konfirmasi unduhan, dan tunggu prosesnya selesai.
-6. Setelah selesai, Anda akan ditawari apakah ingin mendownload playlist yang lain.
+### Panduan Interaktif:
+Aplikasi akan memandu Anda melalui antarmuka (UI) terminal yang cantik:
+1. **Masukkan URL YouTube:** Paste *link* (tautan) YouTube Mix atau Playlist yang ingin diunduh.
+2. **Pembatasan Lagu (Opsional):** Anda bisa memilih untuk mengunduh semua lagu atau membatasinya (misal: hanya 5 lagu pertama saja).
+3. **Pilih Kualitas Audio (Best Quality):**
+   - `[1] MP3 (320kbps)` - Kualitas standar tertinggi, hemat penyimpanan.
+   - `[2] FLAC (Lossless)` - Kualitas murni tanpa merusak detail suara (ukuran besar).
+   - `[3] WAV (Uncompressed)` - Kualitas mentah studio (ukuran sangat besar).
+   - `[4] Original Audio` - File audio asli dari YouTube (biasanya Opus/M4A) tanpa konversi.
+4. **Mulai Unduhan:** Setelah Anda mengkonfirmasi panel ringkasan, bar progres (Progress Bar) modern akan muncul dan menampilkan kecepatan unduhan (MB/s) serta estimasi waktu.
 
-## Hasil Download
-Hasil file audio akan tersimpan secara otomatis dan terorganisir di dalam folder bawaan perangkat Anda:
-📂 **`~/Downloads/YT_Downloader/Nama_Playlist/`**
+> **💡 Informasi Penyimpanan Berkas:**  
+> Anda tidak perlu mencari-cari file hasil unduhan. Semua file musik akan langsung dikirim dan ditata rapi ke dalam folder bawaan perangkat Anda di:  
+> 📁 **`[Penyimpanan Internal]/Downloads/YT_Downloader/[Nama Playlist]`**
