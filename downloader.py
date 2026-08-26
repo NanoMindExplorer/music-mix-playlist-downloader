@@ -80,6 +80,24 @@ def run_retrofit():
         console.print("[bold red]❌ Folder tidak ditemukan![/bold red]")
         return
 
+    # Langkah 0: Perbaiki (Rename) file LRC lama yang memiliki kode bahasa (e.g. .id.lrc -> .lrc)
+    fixed_lrc_count = 0
+    for lrc_file in glob.glob(os.path.join(target_folder, "**", "*.lrc"), recursive=True):
+        parts = lrc_file.rsplit('.', 2)
+        if len(parts) == 3 and len(parts[1]) <= 3:
+            new_name = f"{parts[0]}.lrc"
+            new_path = os.path.join(os.path.dirname(lrc_file), new_name)
+            if os.path.exists(new_path):
+                if parts[1] != 'id' and os.path.getsize(new_path) > 0:
+                    os.remove(lrc_file)
+                    continue
+                os.remove(new_path)
+            shutil.move(lrc_file, new_path)
+            fixed_lrc_count += 1
+            
+    if fixed_lrc_count > 0:
+        console.print(f"[bold green]✅ Berhasil memperbaiki penamaan {fixed_lrc_count} file Lirik lama secara instan![/bold green]")
+
     # Kumpulkan file audio
     audio_files = []
     for ext in ["*.mp3", "*.flac"]:
