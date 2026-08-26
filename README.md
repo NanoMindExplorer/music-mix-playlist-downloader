@@ -10,25 +10,25 @@ Cukup salin (copy) dan jalankan (paste) satu baris perintah di bawah ini pada te
 
 ### 📱 Android (Termux)
 ```bash
-pkg update -y && pkg install -y python ffmpeg git && git clone https://github.com/NanoMindExplorer/yt-mix-playlist-to-mp3-320k-downloader.git && cd yt-mix-playlist-to-mp3-320k-downloader && pip install -r requirements.txt
+pkg update -y && pkg install -y python ffmpeg git && git clone https://github.com/NanoMindExplorer/yt-mix-playlist-to-audio-downloader.git && cd yt-mix-playlist-to-audio-downloader && pip install -r requirements.txt
 ```
 
 ### 🐧 Linux (Ubuntu/Debian)
 ```bash
-sudo apt update && sudo apt install -y python3 python3-pip ffmpeg git && git clone https://github.com/NanoMindExplorer/yt-mix-playlist-to-mp3-320k-downloader.git && cd yt-mix-playlist-to-mp3-320k-downloader && pip3 install -r requirements.txt --break-system-packages
+sudo apt update && sudo apt install -y python3 python3-pip ffmpeg git && git clone https://github.com/NanoMindExplorer/yt-mix-playlist-to-audio-downloader.git && cd yt-mix-playlist-to-audio-downloader && pip3 install -r requirements.txt --break-system-packages
 ```
 
 ### 🪟 Windows (PowerShell)
 *(Catatan: Pastikan Anda telah menginstal Python, Git, dan FFmpeg terlebih dahulu di Windows Anda).*
 ```powershell
-winget install ffmpeg; git clone https://github.com/NanoMindExplorer/yt-mix-playlist-to-mp3-320k-downloader.git; cd yt-mix-playlist-to-mp3-320k-downloader; pip install -r requirements.txt
+winget install ffmpeg; git clone https://github.com/NanoMindExplorer/yt-mix-playlist-to-audio-downloader.git; cd yt-mix-playlist-to-audio-downloader; pip install -r requirements.txt
 ```
 
 ---
 
 ## 🚀 Cara Penggunaan
 
-Setelah instalasi selesai, pastikan Anda berada di dalam folder aplikasinya (`cd yt-mix-playlist-to-mp3-320k-downloader`), lalu jalankan perintah berikut:
+Setelah instalasi selesai, pastikan Anda berada di dalam folder aplikasinya (`cd yt-mix-playlist-to-audio-downloader`), lalu jalankan perintah berikut:
 
 ```bash
 python downloader.py
