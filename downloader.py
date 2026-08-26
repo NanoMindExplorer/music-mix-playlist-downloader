@@ -332,6 +332,27 @@ def run_cli():
             try:
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     ydl.download([final_target])
+                    
+                # Fix penamaan file LRC (yt-dlp menambahkan kode bahasa seperti .id.lrc atau .en.lrc yang tidak terbaca oleh Music Player)
+                if download_lyrics:
+                    for root, _, files in os.walk(output_dir):
+                        for file in files:
+                            if file.endswith('.lrc'):
+                                parts = file.rsplit('.', 2)
+                                # Memastikan itu adalah kode bahasa bawaan yt-dlp (biasanya 2-3 huruf)
+                                if len(parts) == 3 and len(parts[1]) <= 3:
+                                    new_name = f"{parts[0]}.lrc"
+                                    old_path = os.path.join(root, file)
+                                    new_path = os.path.join(root, new_name)
+                                    # Jika sudah ada file .lrc (misal bahasa lain), timpa saja
+                                    if os.path.exists(new_path):
+                                        # Prioritaskan bahasa Indonesia ('id'), abaikan jika yg baru 'en' dan 'id' sdh ada
+                                        if parts[1] != 'id' and os.path.getsize(new_path) > 0:
+                                            os.remove(old_path)
+                                            continue
+                                        os.remove(new_path)
+                                    shutil.move(old_path, new_path)
+
                 progress.update(main_task, description="[bold green]✨ Seluruh tugas selesai!", completed=100, total=100)
             except Exception as e:
                 progress.stop()
