@@ -172,12 +172,15 @@ def process_transliteration(lrc_path, transliterate_mode):
     except Exception as e:
         console.print(f"[dim yellow]⚠️ Gagal melakukan transliterasi pada {os.path.basename(lrc_path)}: {e}[/dim yellow]")
 
-def fetch_synced_lyrics(title, lrc_path, sync_huawei, transliterate_mode="❌ 1"):
+def fetch_synced_lyrics(title, lrc_path, sync_huawei, transliterate_mode="❌ 1", override_query=None):
     """Menggunakan library pihak ketiga (syncedlyrics) untuk mendapatkan lirik Studio Quality tanpa diblokir YouTube"""
     try:
-        # Hapus teks dalam kurung siku/biasa/jepang yang mengganggu pencarian lirik (e.g., "[Rainych]", "【Rainych】", "(Official Video)")
-        import re
-        clean_title = re.sub(r'\[.*?\]|\(.*?\)|【.*?】', '', title).strip()
+        if override_query:
+            clean_title = override_query.strip()
+        else:
+            # Hapus teks dalam kurung siku/biasa/jepang yang mengganggu pencarian lirik (e.g., "[Rainych]", "【Rainych】", "(Official Video)")
+            import re
+            clean_title = re.sub(r'\[.*?\]|\(.*?\)|【.*?】', '', title).strip()
         
         lrc_text = syncedlyrics.search(clean_title)
         if lrc_text:
@@ -222,13 +225,14 @@ def run_retrofit():
         "📝 Pilih Sumber & Mesin Lirik (Sangat Penting):",
         choices=[
             "🎧 1. Mesin Spotify/Musixmatch (Anti-Blokir YT) - Terbaik untuk Lagu Asli (Original)",
-            "📺 2. Mesin YouTube Subtitles (Rawan 429) - Terbaik untuk Lagu Cover (Timing 100% Akurat)",
-            "❌ 3. Jangan download lirik"
+            "✍️ 2. Mesin Spotify (Input Judul Manual) - Terbaik jika judul Spotify berbeda dari YouTube",
+            "📺 3. Mesin YouTube Subtitles (Rawan 429) - Terbaik untuk Lagu Cover (Timing 100% Akurat)",
+            "❌ 4. Jangan download lirik"
         ],
         style=custom_theme
     ).ask()
     
-    download_lyrics = not lyrics_mode.startswith("❌ 3")
+    download_lyrics = not lyrics_mode.startswith("❌ 4")
 
     transliterate = "❌ 1"
     if download_lyrics:
@@ -344,7 +348,7 @@ def run_retrofit():
                 'logger': YTDLPLogger()
             }
             
-            if lyrics_mode.startswith("📺 2"):
+            if lyrics_mode.startswith("📺 3"):
                 ydl_opts['writesubtitles'] = True
                 ydl_opts['writeautomaticsub'] = True
                 ydl_opts['subtitleslangs'] = ['id', 'en', 'ja', 'ko', 'all']
@@ -364,16 +368,21 @@ def run_retrofit():
             # BLOK 1: Pemrosesan Lirik
             if not target_mode.startswith("🖼️ 3"):
                 # Tangani lirik hasil unduhan YouTube (jika menggunakan Mode 2)
-                if lyrics_mode.startswith("📺 2"):
+                if lyrics_mode.startswith("📺 3"):
                     for yt_lrc in glob.glob(os.path.join(dir_path, f"temp_meta_{title}*.lrc")):
                         if os.path.exists(lrc_path): os.remove(lrc_path)
                         shutil.move(yt_lrc, lrc_path)
                 
-                # Jika lirik belum ada dan kita pakai Mode 1 (Spotify)
+                # Jika lirik belum ada dan kita pakai Mode 1/2 (Spotify)
                 huawei_lrc_path = os.path.join(str(Path.home()), "storage", "shared", "Music", "Musiclrc", f"{title}.lrc")
-                if lyrics_mode.startswith("🎧 1") and not os.path.exists(lrc_path) and not (sync_huawei and os.path.exists(huawei_lrc_path)):
-                    fetch_synced_lyrics(title, lrc_path, sync_huawei, transliterate)
-                # Jika lirik sudah ada (misal dari YouTube CC Mode 2), transliterasi & sinkronisasi
+                if (lyrics_mode.startswith("🎧 1") or lyrics_mode.startswith("✍️ 2")) and not os.path.exists(lrc_path) and not (sync_huawei and os.path.exists(huawei_lrc_path)):
+                    query = None
+                    if lyrics_mode.startswith("✍️ 2"):
+                        progress.stop()
+                        query = questionary.text(f"📝 Masukkan judul Spotify untuk '{title}':", style=custom_theme).ask()
+                        progress.start()
+                    fetch_synced_lyrics(title, lrc_path, sync_huawei, transliterate, override_query=query)
+                # Jika lirik sudah ada (misal dari YouTube CC Mode 3), transliterasi & sinkronisasi
                 elif os.path.exists(lrc_path):
                     process_transliteration(lrc_path, transliterate)
                     if sync_huawei:
@@ -581,13 +590,14 @@ def run_cli():
             "📝 Pilih Sumber & Mesin Lirik (Sangat Penting):",
             choices=[
                 "🎧 1. Mesin Spotify/Musixmatch (Anti-Blokir YT) - Terbaik untuk Lagu Asli (Original)",
-                "📺 2. Mesin YouTube Subtitles (Rawan 429) - Terbaik untuk Lagu Cover (Timing 100% Akurat)",
-                "❌ 3. Jangan download lirik"
+                "✍️ 2. Mesin Spotify (Input Judul Manual) - Terbaik jika judul Spotify berbeda dari YouTube",
+                "📺 3. Mesin YouTube Subtitles (Rawan 429) - Terbaik untuk Lagu Cover (Timing 100% Akurat)",
+                "❌ 4. Jangan download lirik"
             ],
             style=custom_theme
         ).ask()
         
-        download_lyrics = not lyrics_mode.startswith("❌ 3")
+        download_lyrics = not lyrics_mode.startswith("❌ 4")
         
         transliterate = "❌ 1"
         if download_lyrics:
@@ -653,7 +663,7 @@ def run_cli():
             ydl_opts['writethumbnail'] = True
             pp.append({'key': 'EmbedThumbnail', 'already_have_thumbnail': False})
             
-        if lyrics_mode.startswith("📺 2"):
+        if lyrics_mode.startswith("📺 3"):
             ydl_opts['writesubtitles'] = True
             ydl_opts['writeautomaticsub'] = True
             ydl_opts['subtitleslangs'] = ['id', 'en', 'ja', 'ko', 'all']
@@ -693,7 +703,7 @@ def run_cli():
                     progress.update(main_task, description="[cyan]Memproses Lirik & Transliterasi...", total=None)
                     
                     # 1. Bersihkan file lirik berakhiran .en.lrc atau .ja.lrc menjadi .lrc (Bawaan YT)
-                    if lyrics_mode.startswith("📺 2"):
+                    if lyrics_mode.startswith("📺 3"):
                         for lrc_file in glob.glob(os.path.join(output_dir, "**", "*.lrc"), recursive=True):
                             parts = lrc_file.rsplit('.', 2)
                             if len(parts) == 3 and len(parts[1]) <= 3:
@@ -709,9 +719,14 @@ def run_cli():
                                 song_title = os.path.splitext(file)[0]
                                 lrc_path = os.path.join(root, f"{song_title}.lrc")
                                 
-                                # Jika lirik belum ada dan kita pakai Mode 1 (Spotify)
-                                if lyrics_mode.startswith("🎧 1") and not os.path.exists(lrc_path):
-                                    fetch_synced_lyrics(song_title, lrc_path, sync_huawei, transliterate)
+                                # Jika lirik belum ada dan kita pakai Mode 1/2 (Spotify)
+                                if (lyrics_mode.startswith("🎧 1") or lyrics_mode.startswith("✍️ 2")) and not os.path.exists(lrc_path):
+                                    query = None
+                                    if lyrics_mode.startswith("✍️ 2"):
+                                        progress.stop()
+                                        query = questionary.text(f"📝 Masukkan judul Spotify untuk '{song_title}':", style=custom_theme).ask()
+                                        progress.start()
+                                    fetch_synced_lyrics(song_title, lrc_path, sync_huawei, transliterate, override_query=query)
                                     
                                 # Jika lirik sudah ada (hasil dari YT atau baru saja ditarik), terapkan transliterasi & sync
                                 elif os.path.exists(lrc_path):
