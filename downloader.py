@@ -8,6 +8,14 @@ import questionary
 from rich.console import Console
 from rich import box
 from rich.panel import Panel
+from urllib.error import HTTPError
+try:
+    import syncedlyrics
+except ModuleNotFoundError:
+    print("\n❌ Modul 'syncedlyrics' belum terinstal!")
+    print("Silakan jalankan perintah berikut untuk menginstal pembaruan:")
+    print("pip install -U -r requirements.txt\n")
+    sys.exit(1)
 from rich.table import Table
 from rich.text import Text
 from rich.progress import (
@@ -77,16 +85,21 @@ def sync_huawei_lrc(lrc_path):
 def fetch_synced_lyrics(title, lrc_path, sync_huawei):
     """Menggunakan library pihak ketiga (syncedlyrics) untuk mendapatkan lirik Studio Quality tanpa diblokir YouTube"""
     try:
-        import syncedlyrics
-        lrc_text = syncedlyrics.search(title)
+        # Hapus teks dalam kurung siku/biasa yang mengganggu pencarian lirik (e.g., "[Rainych]", "(Official Video)")
+        import re
+        clean_title = re.sub(r'\[.*?\]|\(.*?\)', '', title).strip()
+        
+        lrc_text = syncedlyrics.search(clean_title)
         if lrc_text:
             with open(lrc_path, 'w', encoding='utf-8') as f:
                 f.write(lrc_text)
             if sync_huawei:
                 sync_huawei_lrc(lrc_path)
             return True
-    except Exception:
-        pass
+        else:
+            console.print(f"[dim yellow]⚠️ Lirik tidak ditemukan di database untuk: {clean_title}[/dim yellow]")
+    except Exception as e:
+        console.print(f"[dim red]❌ Error saat menarik lirik untuk {title}: {e}[/dim red]")
     return False
 
 custom_theme = questionary.Style([
