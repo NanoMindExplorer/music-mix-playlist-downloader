@@ -119,6 +119,12 @@ def run_retrofit():
             # Jika namanya sudah benar, tetap sync ke Huawei
             if sync_huawei:
                 sync_huawei_lrc(lrc_file)
+                
+    # Langkah 0.5: Bersihkan file sampah sisa timeout sebelumnya (.vtt, .part, .json)
+    junk_files = glob.glob(os.path.join(target_folder, "**", "temp_meta_*"), recursive=True)
+    for junk in junk_files:
+        try: os.remove(junk)
+        except: pass
             
     if fixed_lrc_count > 0:
         console.print(f"[bold green]✅ Berhasil memperbaiki penamaan & sinkronisasi {fixed_lrc_count} file Lirik lama secara instan![/bold green]")
@@ -219,10 +225,14 @@ def run_retrofit():
                     os.remove(audio_path)
                     shutil.move(temp_audio, audio_path)
                     
-                # Bersihkan sisa cover
-                for c in temp_cover_glob:
-                    if os.path.exists(c):
-                        os.remove(c)
+            # Bersihkan SEMUA sisa file sampah sementara (seperti .vtt, .part, .json, .webp)
+            temp_junk_glob = glob.glob(os.path.join(dir_path, f"temp_meta_{title}*"))
+            for junk in temp_junk_glob:
+                try:
+                    if os.path.exists(junk):
+                        os.remove(junk)
+                except Exception:
+                    pass
                         
             progress.advance(main_task)
             
