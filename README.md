@@ -47,6 +47,15 @@ Aplikasi akan memandu Anda melalui antarmuka (UI) terminal yang cantik:
    - `[4] Original Audio` - File audio asli dari YouTube (biasanya Opus/M4A) tanpa konversi.
 4. **Mulai Unduhan:** Setelah Anda mengkonfirmasi panel ringkasan, bar progres (Progress Bar) modern akan muncul dan menampilkan kecepatan unduhan (MB/s) serta estimasi waktu.
 
+---
+
+## ✨ Fitur Unggulan
+- **Interactive CLI**: Tampilan terminal yang indah, berwarna, dan mudah digunakan (dibangun dengan `rich`).
+- **Embed Cover Art & Metadata (Baru!)**: Otomatis menyematkan Thumbnail YouTube sebagai *Album Cover* beserta informasi judul, artis, dan tahun lagu langsung ke dalam file musik Anda. Tampil sangat profesional di HP atau pemutar musik mobil!
+- Mendownload seluruh video dalam sebuah **YouTube Playlist** atau **YouTube Mix**.
+- **Penyimpanan Otomatis**: Semua lagu kini otomatis tersimpan di folder bawaan `Downloads` di perangkat/komputer Anda (termasuk deteksi pintar untuk Termux Android).
+- Melanjutkan unduhan jika ada video yang error (misal: video dihapus/private).
+
 > **💡 Informasi Penyimpanan Berkas:**  
 > Anda tidak perlu mencari-cari file hasil unduhan. Semua file musik akan langsung dikirim dan ditata rapi ke dalam folder bawaan perangkat Anda di:  
 > 📁 **`[Penyimpanan Internal]/Downloads/YT_Downloader/[Nama Playlist]`**

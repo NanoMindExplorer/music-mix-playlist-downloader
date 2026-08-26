@@ -26,8 +26,9 @@ class YTDLPLogger:
     def warning(self, msg):
         pass # Sembunyikan warning
     def error(self, msg):
-        # Hanya tampilkan error fatal
-        console.print(f"[bold red]❌ Error yt-dlp:[/bold red] {msg}")
+        # Abaikan error dari metadata/thumbnail jika format tidak mendukung (seperti WAV)
+        if "metadata" not in msg.lower() and "thumbnail" not in msg.lower():
+            console.print(f"[bold red]❌ Error yt-dlp:[/bold red] {msg}")
 
 def check_dependencies():
     """Mengecek apakah sistem memiliki dependensi yang diwajibkan"""
@@ -66,7 +67,7 @@ def run_cli():
             banner, 
             border_style="bold blue", 
             padding=(1, 2),
-            title="[bold magenta]v1.0[/bold magenta]",
+            title="[bold magenta]v1.1 - Cover Art Editon[/bold magenta]",
             title_align="right",
             subtitle="[dim]Open Source CLI Tool[/dim]",
             subtitle_align="center"
@@ -86,7 +87,7 @@ def run_cli():
         console.print("\n[bold cyan]Pilihan Kualitas Audio:[/bold cyan]")
         console.print("  [1] MP3 (320kbps)  - Default (Kualitas Tinggi, Ukuran Ringan)")
         console.print("  [2] FLAC (Lossless)- Best Quality murni tanpa kompresi (Ukuran Besar)")
-        console.print("  [3] WAV (Uncompressed) - Kualitas Mentah/Studio (Sangat Besar)")
+        console.print("  [3] WAV (Uncompressed) - Kualitas Mentah/Studio (Sangat Besar, No Cover Art)")
         console.print("  [4] Original Audio - Format bawaan YouTube (Opus/M4A) tanpa konversi")
         
         format_choice = Prompt.ask("[bold yellow]Pilih format (1/2/3/4)[/bold yellow]", choices=["1", "2", "3", "4"], default="1")
@@ -114,6 +115,8 @@ def run_cli():
         summary.append(f"{max_songs if max_songs else 'Semua (Tanpa Batas)'}\n", style="green")
         summary.append("Format      : ", style="bold white")
         summary.append(f"{selected_fmt['name']}\n", style="magenta")
+        summary.append("ID3 & Cover : ", style="bold white")
+        summary.append("✅ Aktif (Embed Metadata & Thumbnail)\n" if selected_fmt['codec'] != 'wav' else "⚠️ Tidak Aktif (WAV tidak mendukung Cover)\n", style="green" if selected_fmt['codec'] != 'wav' else "yellow")
         summary.append("Folder      : ", style="bold white")
         summary.append(f"{output_dir}\n", style="yellow")
         
@@ -137,10 +140,22 @@ def run_cli():
             'extract_flat': False,
         }
 
-        # Konfigurasi Post-processor (FFmpeg)
+        # --- KONFIGURASI METADATA & COVER ART (THUMBNAIL) ---
         pp = [{'key': 'FFmpegExtractAudio', 'preferredcodec': selected_fmt['codec']}]
+        
+        # Set bitrate jika tersedia (contoh: MP3 320k)
         if selected_fmt['quality']:
             pp[0]['preferredquality'] = selected_fmt['quality']
+            
+        # 1. Selalu tambahkan ID3 Metadata (Judul, Artis, Channel)
+        pp.append({'key': 'FFmpegMetadata', 'add_metadata': True})
+        
+        # 2. Tambahkan Embed Cover Art (Thumbnail) jika formatnya mendukung
+        # WAV format sangat tidak disarankan menggunakan embedded album art karena standar yang tidak baku
+        if selected_fmt['codec'] != 'wav':
+            ydl_opts['writethumbnail'] = True
+            pp.append({'key': 'EmbedThumbnail', 'already_have_thumbnail': False})
+            
         ydl_opts['postprocessors'] = pp
         
         if max_songs:
@@ -161,7 +176,7 @@ def run_cli():
         ) as progress:
             
             # Task indeterminate untuk fase analisis playlist
-            main_task = progress.add_task("[cyan]Menganalisis URL & Playlist...", total=None)
+            main_task = progress.add_task("[cyan]Menganalisis URL & Metadata...", total=None)
             
             # Hook untuk mengupdate Progress Bar secara Real-Time
             def download_hook(d):
@@ -184,8 +199,8 @@ def run_cli():
                     filename = os.path.basename(d.get('filename', 'Lagu'))
                     if len(filename) > 35:
                         filename = filename[:32] + "..."
-                    # Ubah status ke indeterminate lagi saat FFmpeg bekerja merender audio
-                    progress.update(main_task, description=f"[green]Konversi & Render: [bold white]{filename}", total=None, completed=0)
+                    # Ubah status ke indeterminate saat merender audio, cover art, dan metadata
+                    progress.update(main_task, description=f"[green]Menyematkan Metadata & Cover Art: [bold white]{filename}", total=None, completed=0)
 
             ydl_opts['progress_hooks'] = [download_hook]
 
