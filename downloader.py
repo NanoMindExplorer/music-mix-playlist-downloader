@@ -153,6 +153,7 @@ def run_cli():
             'outtmpl': f'{output_dir}/%(playlist_title)s/%(title)s.%(ext)s',
             'noplaylist': False,
             'ignoreerrors': True,     # Lanjutkan walau ada video private/copyright
+            'geo_bypass': True,       # Bypass pemblokiran wilayah/Copyright (Geo-Restriction)
             'quiet': True,            # Matikan log default yang berantakan
             'no_warnings': True,      # Sembunyikan warning
             'logger': YTDLPLogger(),  # Gunakan custom logger
