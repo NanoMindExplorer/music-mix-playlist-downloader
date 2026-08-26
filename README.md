@@ -13,6 +13,7 @@ Versi terbaru kini hadir dengan **Tampilan CLI Interaktif yang Modern**! 🎉
   - `WAV (Uncompressed)` - Kualitas mentah (studio quality)
   - `Original Audio` - Format murni bawaan YouTube (Opus/M4A)
 - Struktur folder otomatis berdasarkan nama Playlist/Mix.
+- **Penyimpanan Otomatis**: Semua lagu kini otomatis tersimpan di folder `Downloads/YT_Downloader/` di perangkat/komputer Anda.
 - Melanjutkan unduhan jika ada video yang error (misal: video dihapus/private).
 
 ## Persyaratan Sistem
@@ -42,10 +43,11 @@ python downloader.py
 ### Langkah Interaktif di Terminal:
 1. Anda akan diminta memasukkan `URL YouTube`.
 2. Anda akan ditanya apakah ingin membatasi jumlah unduhan lagu.
-3. **Baru!** Anda akan diminta memilih kualitas audio `(1: MP3, 2: FLAC, 3: WAV, 4: Original)`.
+3. Anda akan diminta memilih kualitas audio `(1: MP3, 2: FLAC, 3: WAV, 4: Original)`.
 4. Sebuah **Panel Ringkasan** akan muncul untuk memastikan pengaturan unduhan Anda.
 5. Konfirmasi unduhan, dan tunggu prosesnya selesai.
 6. Setelah selesai, Anda akan ditawari apakah ingin mendownload playlist yang lain.
 
 ## Hasil Download
-Hasil file audio akan tersimpan secara otomatis dan terorganisir di dalam folder `downloads/Nama_Playlist/`.
+Hasil file audio akan tersimpan secara otomatis dan terorganisir di dalam folder bawaan perangkat Anda:
+📂 **`~/Downloads/YT_Downloader/Nama_Playlist/`**

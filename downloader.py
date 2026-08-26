@@ -1,6 +1,7 @@
 import os
 import sys
 import shutil
+from pathlib import Path
 import yt_dlp
 from rich.console import Console
 from rich.panel import Panel
@@ -85,6 +86,9 @@ def run_cli():
         }
         selected_fmt = format_map[format_choice]
 
+        # Menetapkan path ke folder Download utama di OS pengguna
+        output_dir = str(Path.home() / "Downloads" / "YT_Downloader")
+        
         # Panel Ringkasan
         summary = Text()
         summary.append("URL Target  : ", style="bold white")
@@ -94,7 +98,7 @@ def run_cli():
         summary.append("Format      : ", style="bold white")
         summary.append(f"{selected_fmt['name']}\n", style="magenta")
         summary.append("Folder      : ", style="bold white")
-        summary.append("./downloads/", style="yellow")
+        summary.append(f"{output_dir}\n", style="yellow")
         
         console.print(Panel(summary, title="[bold blue]Ringkasan Tugas[/bold blue]", border_style="blue"))
         
@@ -103,7 +107,6 @@ def run_cli():
             continue
 
         # 5. Persiapan Engine yt-dlp
-        output_dir = "downloads"
         os.makedirs(output_dir, exist_ok=True)
 
         ydl_opts = {
