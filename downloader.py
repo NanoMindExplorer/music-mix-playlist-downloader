@@ -60,6 +60,17 @@ def get_default_path():
         return str(Path.home() / "storage" / "downloads" / "YT_Downloader")
     return str(Path.home() / "Downloads" / "YT_Downloader")
 
+def sync_huawei_lrc(lrc_path):
+    """Menyalin file .lrc ke folder khusus Musiclrc bawaan Huawei/Android"""
+    if "PREFIX" in os.environ and "com.termux" in os.environ.get("PREFIX", ""):
+        huawei_dir = os.path.join(str(Path.home()), "storage", "music", "Musiclrc")
+        try:
+            os.makedirs(huawei_dir, exist_ok=True)
+            filename = os.path.basename(lrc_path)
+            shutil.copy2(lrc_path, os.path.join(huawei_dir, filename))
+        except Exception:
+            pass
+
 custom_theme = questionary.Style([
     ('qmark', 'fg:#00ffff bold'),
     ('question', 'bold white'),
@@ -80,7 +91,7 @@ def run_retrofit():
         console.print("[bold red]❌ Folder tidak ditemukan![/bold red]")
         return
 
-    # Langkah 0: Perbaiki (Rename) file LRC lama yang memiliki kode bahasa (e.g. .id.lrc -> .lrc)
+    # Langkah 0: Perbaiki (Rename) file LRC lama dan Sync ke Huawei
     fixed_lrc_count = 0
     for lrc_file in glob.glob(os.path.join(target_folder, "**", "*.lrc"), recursive=True):
         parts = lrc_file.rsplit('.', 2)
@@ -93,10 +104,14 @@ def run_retrofit():
                     continue
                 os.remove(new_path)
             shutil.move(lrc_file, new_path)
+            sync_huawei_lrc(new_path)
             fixed_lrc_count += 1
+        else:
+            # Jika namanya sudah benar, tetap sync ke Huawei
+            sync_huawei_lrc(lrc_file)
             
     if fixed_lrc_count > 0:
-        console.print(f"[bold green]✅ Berhasil memperbaiki penamaan {fixed_lrc_count} file Lirik lama secara instan![/bold green]")
+        console.print(f"[bold green]✅ Berhasil memperbaiki penamaan & sinkronisasi {fixed_lrc_count} file Lirik lama secara instan![/bold green]")
 
     # Kumpulkan file audio
     audio_files = []
@@ -167,6 +182,7 @@ def run_retrofit():
             for temp_lrc in temp_lrc_glob:
                 if os.path.exists(temp_lrc):
                     shutil.move(temp_lrc, lrc_path)
+                    sync_huawei_lrc(lrc_path)
                     
             # Cari Cover Art hasil download (bisa .jpg, .webp)
             temp_cover_glob = glob.glob(os.path.join(dir_path, f"temp_meta_{title}*.webp")) + glob.glob(os.path.join(dir_path, f"temp_meta_{title}*.jpg"))
@@ -370,6 +386,9 @@ def run_cli():
                                             continue
                                         os.remove(new_path)
                                     shutil.move(old_path, new_path)
+                                    sync_huawei_lrc(new_path)
+                                else:
+                                    sync_huawei_lrc(os.path.join(root, file))
 
                 progress.update(main_task, description="[bold green]✨ Seluruh tugas selesai!", completed=100, total=100)
             except Exception as e:
