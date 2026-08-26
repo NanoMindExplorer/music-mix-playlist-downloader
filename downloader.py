@@ -172,7 +172,65 @@ def process_transliteration(lrc_path, transliterate_mode):
     except Exception as e:
         console.print(f"[dim yellow]⚠️ Gagal melakukan transliterasi pada {os.path.basename(lrc_path)}: {e}[/dim yellow]")
 
-def fetch_synced_lyrics(title, lrc_path, sync_huawei, transliterate_mode="❌ 1", override_query=None):
+def process_translation(lrc_path, translate_mode):
+    """Menerjemahkan baris-baris LRC ke bahasa Indonesia secara berdampingan tanpa merusak timing"""
+    if not os.path.exists(lrc_path) or not translate_mode: return
+    
+    try:
+        with open(lrc_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+            
+        import re
+        from deep_translator import GoogleTranslator, MyMemoryTranslator
+        import langdetect
+        
+        texts_to_translate = []
+        for line in lines:
+            text = re.sub(r'\[.*?\]', '', line).strip()
+            texts_to_translate.append(text if text else " ")
+
+        translated_texts = []
+        try:
+            translator = GoogleTranslator(source='auto', target='id')
+            translated_texts = translator.translate_batch(texts_to_translate)
+            if any(t and "Error 500" in t for t in translated_texts):
+                raise Exception("Google Translate Web API Error 500")
+        except Exception as e:
+            console.print(f"[dim yellow]⚠️ Google Translate gagal ({e}). Beralih ke mesin cadangan (MyMemory)...[/dim yellow]")
+            pure_text = " ".join([t for t in texts_to_translate if t.strip()])
+            if not pure_text: return
+            lang = langdetect.detect(pure_text)
+            
+            lang_map = {'ja': 'ja-JP', 'zh-cn': 'zh-CN', 'zh-tw': 'zh-TW', 'ko': 'ko-KR', 'th': 'th-TH', 'en': 'en-US'}
+            source_lang = lang_map.get(lang, f"{lang}-{lang.upper()}")
+            
+            try:
+                mm = MyMemoryTranslator(source=source_lang, target='id-ID')
+                translated_texts = mm.translate_batch(texts_to_translate)
+            except Exception as e2:
+                console.print(f"[dim yellow]⚠️ Semua mesin terjemahan gagal: {e2}[/dim yellow]")
+                return
+
+        if not translated_texts or len(translated_texts) != len(lines):
+            return
+
+        output = []
+        for i, line in enumerate(lines):
+            output.append(line.rstrip('\n'))
+            t_text = translated_texts[i].strip() if translated_texts[i] else ""
+            if t_text and t_text.lower() != texts_to_translate[i].strip().lower():
+                match = re.match(r'(\[.*?\])', line)
+                if match:
+                    timestamp = match.group(1)
+                    output.append(f"{timestamp} ({t_text})")
+                    
+        with open(lrc_path, 'w', encoding='utf-8') as f:
+            f.write("\n".join(output))
+            
+    except Exception as e:
+        console.print(f"[dim yellow]⚠️ Gagal menerjemahkan lirik pada {os.path.basename(lrc_path)}: {e}[/dim yellow]")
+
+def fetch_synced_lyrics(title, lrc_path, sync_huawei, transliterate_mode="❌ 1", override_query=None, translate_mode=False):
     """Menggunakan library pihak ketiga (syncedlyrics) untuk mendapatkan lirik Studio Quality tanpa diblokir YouTube"""
     try:
         if override_query:
@@ -187,6 +245,7 @@ def fetch_synced_lyrics(title, lrc_path, sync_huawei, transliterate_mode="❌ 1"
             with open(lrc_path, 'w', encoding='utf-8') as f:
                 f.write(lrc_text)
             process_transliteration(lrc_path, transliterate_mode)
+            process_translation(lrc_path, translate_mode)
             if sync_huawei:
                 sync_huawei_lrc(lrc_path)
         else:
@@ -247,6 +306,9 @@ def run_retrofit():
             ],
             style=custom_theme
         ).ask()
+        translate_id = questionary.confirm("🌐 Terjemahkan Lirik ke Bahasa Indonesia (Otomatis ditambahkan di bawah teks asli)?", default=False, style=custom_theme).ask()
+    else:
+        translate_id = False
 
     # Langkah 0: Perbaiki (Rename) file LRC lama, Terapkan Transliterasi, dan Sync ke Huawei
     fixed_lrc_count = 0
@@ -381,10 +443,11 @@ def run_retrofit():
                         progress.stop()
                         query = questionary.text(f"📝 Masukkan judul Spotify untuk '{title}':", style=custom_theme).ask()
                         progress.start()
-                    fetch_synced_lyrics(title, lrc_path, sync_huawei, transliterate, override_query=query)
+                    fetch_synced_lyrics(title, lrc_path, sync_huawei, transliterate, override_query=query, translate_mode=translate_id)
                 # Jika lirik sudah ada (misal dari YouTube CC Mode 3), transliterasi & sinkronisasi
                 elif os.path.exists(lrc_path):
                     process_transliteration(lrc_path, transliterate)
+                    process_translation(lrc_path, translate_id)
                     if sync_huawei:
                         sync_huawei_lrc(lrc_path)
                 
@@ -612,7 +675,9 @@ def run_cli():
                 ],
                 style=custom_theme
             ).ask()
-            
+            translate_id = questionary.confirm("🌐 Terjemahkan Lirik ke Bahasa Indonesia (Otomatis ditambahkan di bawah teks asli)?", default=False, style=custom_theme).ask()
+        else:
+            translate_id = False
         sync_huawei = False
         if download_lyrics and "PREFIX" in os.environ and "com.termux" in os.environ.get("PREFIX", ""):
             console.print()
@@ -726,11 +791,12 @@ def run_cli():
                                         progress.stop()
                                         query = questionary.text(f"📝 Masukkan judul Spotify untuk '{song_title}':", style=custom_theme).ask()
                                         progress.start()
-                                    fetch_synced_lyrics(song_title, lrc_path, sync_huawei, transliterate, override_query=query)
+                                    fetch_synced_lyrics(song_title, lrc_path, sync_huawei, transliterate, override_query=query, translate_mode=translate_id)
                                     
                                 # Jika lirik sudah ada (hasil dari YT atau baru saja ditarik), terapkan transliterasi & sync
                                 elif os.path.exists(lrc_path):
                                     process_transliteration(lrc_path, transliterate)
+                                    process_translation(lrc_path, translate_id)
                                     if sync_huawei:
                                         sync_huawei_lrc(lrc_path)
                                 
