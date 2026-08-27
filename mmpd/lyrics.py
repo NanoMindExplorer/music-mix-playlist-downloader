@@ -253,12 +253,16 @@ def process_translation(lrc_path: str, translate_mode: bool) -> None:
         [00:01.23] original text
         [00:01.23] terjemahan
 
+    Fase 4: cek translation cache (SQLite) sebelum hit API.
+    Cache key: SHA256(source_text + source_lang + target_lang).
+
     Args:
         lrc_path:       Path file .lrc
         translate_mode: True untuk aktifkan translation, False untuk skip
 
     Behavior:
         - Skip jika file tidak ada atau translate_mode False
+        - Fase 4: cek translation cache dulu (SQLite) - kalau 100% hit, skip API
         - Pakai Google Translate (deep_translator.GoogleTranslator)
         - Fallback ke MyMemory jika Google error 500 atau rate-limited
         - Tulis hasil via atomic_write_text (cegah korupsi)
@@ -270,92 +274,181 @@ def process_translation(lrc_path: str, translate_mode: bool) -> None:
         with open(lrc_path, "r", encoding="utf-8") as f:
             lines = f.readlines()
 
-        from deep_translator import GoogleTranslator, MyMemoryTranslator
-        import langdetect
-
         # Kumpulkan semua baris teks (tanpa timestamp) untuk translate batch
         texts_to_translate = []
         for line in lines:
             text = re.sub(r"\[.*?\]", "", line).strip()
             texts_to_translate.append(text if text else " ")
 
-        translated_texts: List[str] = []
-
-        # === Strategi 1: Google Translate (batch, cepat) ===
+        # === Fase 4: Cek translation cache per-baris ===
         try:
-            translator = GoogleTranslator(source="auto", target="id")
-            combined_text = "\n".join(texts_to_translate)
-            res = translator.translate(combined_text)
-            if not res or "Error 500" in res:
-                raise Exception("Google Translate Web API Error 500")
-            translated_texts = res.split("\n")
-        except Exception as e:
-            _log.warning("Google Translate gagal (%s). Beralih ke MyMemory...", e)
+            from mmpd.cache import get_translation_cache, set_translation_cache
+            cache_available = True
+        except ImportError:
+            cache_available = False
+            _log.debug("mmpd.cache tidak tersedia, skip translation cache")
 
-            # === Strategi 2: MyMemory (chunked, lebih lambat tapi reliable) ===
-            pure_text = " ".join([t for t in texts_to_translate if t.strip()])
-            if not pure_text:
+        cached_translations = [None] * len(texts_to_translate)
+        if cache_available:
+            for i, text in enumerate(texts_to_translate):
+                if text.strip():
+                    cached = get_translation_cache(text, "auto", "id")
+                    if cached is not None:
+                        cached_translations[i] = cached
+
+            # Cek apakah SEMUA baris ada di cache
+            cache_hit_count = sum(1 for c in cached_translations if c is not None)
+            non_empty_count = sum(1 for t in texts_to_translate if t.strip())
+
+            if cache_hit_count == non_empty_count and non_empty_count > 0:
+                _log.info("Translation: 100% cache hit (%d baris) untuk %s",
+                          cache_hit_count, os.path.basename(lrc_path))
+                translated_texts = [
+                    cached_translations[i] if cached_translations[i] is not None else " "
+                    for i in range(len(texts_to_translate))
+                ]
+                _write_bilingual_lrc(lrc_path, lines, texts_to_translate, translated_texts)
                 return
 
-            try:
-                lang = langdetect.detect(pure_text)
-            except Exception:
-                lang = "en"
+            if cache_hit_count > 0:
+                _log.info(
+                    "Translation: %d/%d baris cache hit, translate sisanya via API",
+                    cache_hit_count,
+                    non_empty_count,
+                )
 
-            source_lang = _LANG_MAP_MMYMEMORY.get(lang, f"{lang}-{lang.upper()}")
+        # Translate hanya baris yang miss cache (atau semua kalau no cache)
+        texts_to_translate_api = []
+        indices_to_translate = []
+        for i, text in enumerate(texts_to_translate):
+            if not cache_available or (cached_translations[i] is None and text.strip()):
+                texts_to_translate_api.append(text)
+                indices_to_translate.append(i)
 
-            try:
-                # MyMemory limit 500 karakter per request
-                mm = MyMemoryTranslator(source=source_lang, target="id-ID")
-                current_chunk: List[str] = []
-                current_len = 0
-                for text in texts_to_translate:
-                    if current_len + len(text) + 1 > 450:
-                        combined = "\n".join(current_chunk)
-                        res = mm.translate(combined)
-                        translated_texts.extend(res.split("\n"))
-                        current_chunk = [text]
-                        current_len = len(text)
-                        time.sleep(1)  # Hindari rate limit MyMemory
-                    else:
-                        current_chunk.append(text)
-                        current_len += len(text) + 1
+        if not texts_to_translate_api:
+            # Semua cached
+            translated_texts = [
+                cached_translations[i] if cached_translations[i] is not None else " "
+                for i in range(len(texts_to_translate))
+            ]
+            _write_bilingual_lrc(lrc_path, lines, texts_to_translate, translated_texts)
+            return
 
-                if current_chunk:
-                    combined = "\n".join(current_chunk)
-                    res = mm.translate(combined)
-                    translated_texts.extend(res.split("\n"))
-            except Exception as e2:
-                _log.warning("Semua mesin terjemahan gagal: %s", e2)
-                return
+        # Translate via API (Google -> MyMemory fallback)
+        api_translations = _translate_via_api(texts_to_translate_api)
 
-        # Pastikan jumlah array cocok (MyMemory kadang potong baris kosong)
-        if len(translated_texts) < len(lines):
-            translated_texts.extend([""] * (len(lines) - len(translated_texts)))
+        # Merge: cached + api results
+        translated_texts = [" "] * len(texts_to_translate)
+        for i, idx in enumerate(indices_to_translate):
+            if i < len(api_translations):
+                translated_texts[idx] = api_translations[i]
+                # Fase 4: cache hasil API
+                if cache_available:
+                    set_translation_cache(
+                        texts_to_translate[idx], "auto", "id",
+                        api_translations[i], provider="google",
+                    )
+        # Isi yang cached
+        for i in range(len(texts_to_translate)):
+            if cached_translations[i] is not None:
+                translated_texts[i] = cached_translations[i]
 
-        # Build output bilingual — dua baris dengan timestamp identik
-        output: List[str] = []
-        for i, line in enumerate(lines):
-            output.append(line.rstrip("\n"))
-            t_text = translated_texts[i].strip() if translated_texts[i] else ""
-            if t_text and t_text.lower() != texts_to_translate[i].strip().lower():
-                match = re.match(r"(\[.*?\])", line)
-                if match:
-                    timestamp = match.group(1)
-                    # Fix B4 (Fase 1): pakai dua baris timestamp identik
-                    # (standar LRC bilingual) — bukan format parenthetical
-                    output.append(f"{timestamp}{t_text}")
-
-        atomic_write_text(lrc_path, "\n".join(output))
-        _log.info("Translation OK: %s", os.path.basename(lrc_path))
+        _write_bilingual_lrc(lrc_path, lines, texts_to_translate, translated_texts)
 
     except Exception as e:
         _log.warning("Gagal menerjemahkan lirik %s: %s", os.path.basename(lrc_path), e)
 
 
-# ============================================================================
-# 4. ORCHESTRATOR: fetch_synced_lyrics
-# ============================================================================
+def _translate_via_api(texts_to_translate):
+    """
+    Translate list of texts via Google Translate (fallback MyMemory).
+    Dipisah ke function terpisah untuk readability + testability (Fase 4).
+    """
+    from deep_translator import GoogleTranslator, MyMemoryTranslator
+    import langdetect
+
+    translated_texts = []
+
+    # === Strategi 1: Google Translate (batch, cepat) ===
+    try:
+        translator = GoogleTranslator(source="auto", target="id")
+        combined_text = "\n".join(texts_to_translate)
+        res = translator.translate(combined_text)
+        if not res or "Error 500" in res:
+            raise Exception("Google Translate Web API Error 500")
+        translated_texts = res.split("\n")
+        return translated_texts
+    except Exception as e:
+        _log.warning("Google Translate gagal (%s). Beralih ke MyMemory...", e)
+
+        # === Strategi 2: MyMemory (chunked, lebih lambat tapi reliable) ===
+        pure_text = " ".join([t for t in texts_to_translate if t.strip()])
+        if not pure_text:
+            return [" "] * len(texts_to_translate)
+
+        try:
+            lang = langdetect.detect(pure_text)
+        except Exception:
+            lang = "en"
+
+        source_lang = _LANG_MAP_MMYMEMORY.get(lang, f"{lang}-{lang.upper()}")
+
+        try:
+            # MyMemory limit 500 karakter per request
+            mm = MyMemoryTranslator(source=source_lang, target="id-ID")
+            current_chunk = []
+            current_len = 0
+            for text in texts_to_translate:
+                if current_len + len(text) + 1 > 450:
+                    combined = "\n".join(current_chunk)
+                    res = mm.translate(combined)
+                    translated_texts.extend(res.split("\n"))
+                    current_chunk = [text]
+                    current_len = len(text)
+                    time.sleep(1)  # Hindari rate limit MyMemory
+                else:
+                    current_chunk.append(text)
+                    current_len += len(text) + 1
+
+            if current_chunk:
+                combined = "\n".join(current_chunk)
+                res = mm.translate(combined)
+                translated_texts.extend(res.split("\n"))
+
+            return translated_texts
+        except Exception as e2:
+            _log.warning("Semua mesin terjemahan gagal: %s", e2)
+            return [" "] * len(texts_to_translate)
+
+
+def _write_bilingual_lrc(lrc_path, lines, texts_to_translate, translated_texts):
+    """
+    Tulis file LRC bilingual dengan format standar industri:
+        [00:01.23] original text
+        [00:01.23] terjemahan
+    """
+    # Pastikan jumlah array cocok (MyMemory kadang potong baris kosong)
+    if len(translated_texts) < len(lines):
+        translated_texts.extend([""] * (len(lines) - len(translated_texts)))
+
+    output = []
+    for i, line in enumerate(lines):
+        output.append(line.rstrip("\n"))
+        t_text = translated_texts[i].strip() if translated_texts[i] else ""
+        if t_text and t_text.lower() != texts_to_translate[i].strip().lower():
+            match = re.match(r"(\[.*?\])", line)
+            if match:
+                timestamp = match.group(1)
+                # Fix B4 (Fase 1): pakai dua baris timestamp identik
+                # (standar LRC bilingual) - bukan format parenthetical
+                output.append(f"{timestamp}{t_text}")
+
+    # Fix R2: gunakan atomic_write_text agar file LRC tidak korup jika
+    # proses terputus di tengah penulisan terjemahan bilingual.
+    atomic_write_text(lrc_path, "\n".join(output))
+    _log.info("Translation OK: %s", os.path.basename(lrc_path))
+
+
 
 def fetch_synced_lyrics(
     title: str,

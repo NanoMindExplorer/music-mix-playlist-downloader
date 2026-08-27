@@ -272,6 +272,10 @@ class LyricsChain:
         """
         Cari lirik di semua provider secara berurutan.
         Return hasil pertama yang sukses, atau None jika semua gagal.
+
+        Fase 4: cek lyrics cache (SQLite) sebelum panggil provider.
+        Cache hit → skip API call, return cached result.
+        Cache miss → panggil provider, cache hasilnya (TTL 30 hari).
         """
         self._log.debug(
             "LyricsChain.search: trying %d providers for '%s'",
@@ -279,6 +283,30 @@ class LyricsChain:
             track.title,
         )
 
+        # === Fase 4: Cek lyrics cache dulu ===
+        try:
+            from mmpd.cache import get_lyrics_cache, set_lyrics_cache
+            cached = get_lyrics_cache(
+                track_title=track.title,
+                artist=track.artist,
+                isrc=track.isrc,
+            )
+            if cached is not None:
+                synced, plain, provider_name = cached
+                self._log.info("Lyrics cache HIT: %s (provider=%s)", track.title, provider_name)
+                return LyricsResult(
+                    synced_lyrics=synced or "",
+                    plain_lyrics=plain,
+                    provider=f"{provider_name} (cached)",
+                    track_name=track.title,
+                    artist_name=track.artist,
+                )
+        except ImportError:
+            self._log.debug("mmpd.cache tidak tersedia, skip lyrics cache")
+        except Exception as e:
+            self._log.warning("Lyrics cache read error: %s", e)
+
+        # === Cache miss: panggil provider ===
         for provider in self._providers:
             provider_name = getattr(provider, "name", provider.__class__.__name__)
             self._log.debug("LyricsChain: trying provider '%s'", provider_name)
@@ -295,6 +323,19 @@ class LyricsChain:
                         elapsed,
                         result.has_synced,
                     )
+                    # Fase 4: cache hasilnya
+                    try:
+                        from mmpd.cache import set_lyrics_cache
+                        set_lyrics_cache(
+                            track_title=track.title,
+                            synced_lyrics=result.synced_lyrics,
+                            plain_lyrics=result.plain_lyrics,
+                            artist=track.artist,
+                            isrc=track.isrc,
+                            provider=provider_name,
+                        )
+                    except Exception as e:
+                        self._log.warning("Lyrics cache write error: %s", e)
                     return result
                 else:
                     self._log.debug(

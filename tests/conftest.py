@@ -46,6 +46,15 @@ def reset_mmpd_singletons():
     _log_mod._initialized = False
     _spotify_client.reset_spotify_client()
 
+    # Fase 4: reset cache singleton + clear all entries antar test
+    # supaya test LyricsChain tidak kena cache dari test sebelumnya
+    try:
+        from mmpd import cache as _cache
+        _cache.reset_cache_singleton()
+        _cache.clear_all_cache()
+    except Exception:
+        pass  # cache module mungkin tidak terinstal
+
     yield  # run test
 
     # Reset setelah test (untuk test berikutnya)
@@ -53,6 +62,14 @@ def reset_mmpd_singletons():
     _log_mod._logger = None
     _log_mod._initialized = False
     _spotify_client.reset_spotify_client()
+
+    # Fase 4: clear cache setelah test juga
+    try:
+        from mmpd import cache as _cache
+        _cache.reset_cache_singleton()
+        _cache.clear_all_cache()
+    except Exception:
+        pass
 
 
 # ============================================================================
