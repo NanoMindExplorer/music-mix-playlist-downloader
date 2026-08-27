@@ -92,6 +92,33 @@ def sync_huawei_lrc(lrc_path):
         except Exception as e:
             console.print(f"[dim yellow]⚠️ Gagal sinkronisasi LRC ({os.path.basename(lrc_path)}): {e}[/dim yellow]")
 
+def _atomic_write_text(path, content):
+    """
+    Fix R2 (atomic write): Tulis file secara atomik untuk mencegah korupsi
+    jika proses crash di tengah penulisan (mis. Ctrl+C saat menulis LRC).
+    
+    Pattern: tulis ke temporary file di direktori yang sama, lalu os.replace()
+    untuk swap atomik (atomic rename) ke path final. os.replace() adalah
+    operasi atomic di POSIX & Windows, sehingga file final selalu utuh
+    (versi lama atau versi baru — tidak pernah setengah jadi).
+    """
+    import tempfile
+    dir_path = os.path.dirname(path) or '.'
+    fd, tmp_path = tempfile.mkstemp(dir=dir_path, prefix='.atomic_', suffix='.tmp')
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8') as f:
+            f.write(content)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, path)
+    except Exception:
+        # Bersihkan temporary file jika os.replace() gagal
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+        raise
+
 def process_transliteration(lrc_path, transliterate_mode):
     """Mengubah huruf Jepang/Mandarin/Korea/Lainnya di dalam file LRC menjadi Romaji/Pinyin/Latin"""
     if not os.path.exists(lrc_path): return
@@ -180,8 +207,9 @@ def process_transliteration(lrc_path, transliterate_mode):
                 else:
                     new_lines.append(line)
                     
-        with open(lrc_path, 'w', encoding='utf-8') as f:
-            f.writelines(new_lines)
+        # Fix R2: gunakan _atomic_write_text agar file LRC tidak korup jika
+        # proses terputus (Ctrl+C, signal, OOM) di tengah penulisan.
+        _atomic_write_text(lrc_path, "".join(new_lines))
     except Exception as e:
         console.print(f"[dim yellow]⚠️ Gagal melakukan transliterasi pada {os.path.basename(lrc_path)}: {e}[/dim yellow]")
 
@@ -268,8 +296,9 @@ def process_translation(lrc_path, translate_mode):
                     # Huawei Music karaoke) akan menampilkannya berdampingan.
                     output.append(f"{timestamp}{t_text}")
                     
-        with open(lrc_path, 'w', encoding='utf-8') as f:
-            f.write("\n".join(output))
+        # Fix R2: gunakan _atomic_write_text agar file LRC tidak korup jika
+        # proses terputus di tengah penulisan terjemahan bilingual.
+        _atomic_write_text(lrc_path, "\n".join(output))
             
     except Exception as e:
         console.print(f"[dim yellow]⚠️ Gagal menerjemahkan lirik pada {os.path.basename(lrc_path)}: {e}[/dim yellow]")
@@ -317,8 +346,8 @@ def fetch_synced_lyrics(title, lrc_path, sync_huawei, transliterate_mode="❌ 1"
                 # Fix R1: bare except → except Exception as e. Log setiap kegagalan agar transparan.
                 console.print(f"[dim yellow]⚠️ Formula Cerdas iTunes gagal: {e}[/dim yellow]")
         if lrc_text:
-            with open(lrc_path, 'w', encoding='utf-8') as f:
-                f.write(lrc_text)
+            # Fix R2: tulis hasil lirik dari syncedlyrics secara atomik juga.
+            _atomic_write_text(lrc_path, lrc_text)
             process_transliteration(lrc_path, transliterate_mode)
             process_translation(lrc_path, translate_mode)
             if sync_huawei:
