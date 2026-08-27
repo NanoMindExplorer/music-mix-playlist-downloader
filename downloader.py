@@ -140,7 +140,13 @@ def process_transliteration(lrc_path, transliterate_mode):
                     time_tag = re.match(r'\[.*?\]', line)
                     text = re.sub(r'\[.*?\]', '', line).strip()
                     py_list = pinyin(text, style=Style.NORMAL)
-                    new_text = "".join([item[0] + " " if item[0].isascii() == False else item[0] for item in py_list])
+                    # Fix B3 (bug logika): kode lama memakai `item[0].isascii() == False`
+                    # yang SELALU False karena pypinyin selalu menghasilkan ASCII.
+                    # Akibatnya spasi antar kata tidak pernah disisipkan, sehingga
+                    # output Pinyin menempel tanpa pemisah (mis. "wǒaìshàngwǎng").
+                    # Versi baru: gabungkan setiap suku kata Pinyin dengan spasi
+                    # sehingga terbaca natural ("wǒ ài shàng wǎng").
+                    new_text = " ".join([item[0] for item in py_list])
                     new_lines.append(f"{time_tag.group(0) if time_tag else ''}{new_text}\n")
                 else:
                     new_lines.append(line)
