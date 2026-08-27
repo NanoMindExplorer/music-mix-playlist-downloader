@@ -514,6 +514,11 @@ def run_retrofit():
                 'file_access_retries': 5,
                 'fragment_retries': 5,
                 'outtmpl': temp_outtmpl,
+                # Fix R13: restrictfilenames memaksa yt-dlp hanya menggunakan
+                # karakter [a-zA-Z0-9._-] sehingga filename aman lintas-platform.
+                # Tanpa ini, judul seperti `Song: A/B/C` menghasilkan file path
+                # ilegal di Windows NTFS (/, :, *, ?, \", <, >, | semua dilarang).
+                'restrictfilenames': True,
                 'quiet': True,
                 'no_warnings': True,
                 'logger': YTDLPLogger()
@@ -908,6 +913,11 @@ def run_cli():
             'sleep_interval_requests': 1,  # Jeda aman saat ekstraksi list lagu
             'sleep_interval': 2,           # Jeda acak minimal 2 detik sebelum unduh
             'max_sleep_interval': 5,       # Jeda acak maksimal 5 detik (menghindari deteksi bot)
+            # Fix R13: restrictfilenames memaksa yt-dlp hanya menggunakan
+            # karakter [a-zA-Z0-9._-] sehingga filename aman lintas-platform.
+            # Mencegah folder/file dengan karakter ilegal (/, :, *, ?, \", <, >, |)
+            # di windows NTFS dan menyederhanakan matching LRC dengan audio.
+            'restrictfilenames': True,
             'quiet': True,
             'no_warnings': True,
             'logger': YTDLPLogger(),
