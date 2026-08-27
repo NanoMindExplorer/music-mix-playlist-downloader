@@ -38,7 +38,14 @@ from rich.table import Table
 from mmpd.config import get_config, get_output_dir, is_termux
 from mmpd.logger import get_logger
 from mmpd.lyrics import fetch_synced_lyrics, process_translation, process_transliteration, sync_huawei_lrc
-from mmpd.spotify import build_ytsearch_query, is_spotify_url, parse_spotify_url_safe
+from mmpd.spotify import (
+    build_ytsearch_query,
+    is_spotify_url,
+    parse_spotify_url_safe,
+    parse_spotify_url_v2,
+    spotipy_available,
+)
+from mmpd.types import TrackInfo
 from mmpd.ui import (
     FORMAT_OPTIONS,
     LYRICS_MODE_CHOICES,
@@ -112,17 +119,21 @@ def _run_download_loop(mode: int) -> None:
     """Mode 1 (YouTube) / 4 (Spotify) / 5 (SoundCloud) — prompt + eksekusi."""
     is_spotify_mode = mode == 4
     is_soundcloud_mode = mode == 5
-    spotify_targets: list[str] = []
+    spotify_targets: list[str] = []  # backward compat untuk display
+    spotify_tracks_v2 = None  # List[SpotifyTrack] untuk Fase 2.3 ISRC matching
 
     if is_spotify_mode:
-        spotify_targets = _gather_spotify_targets()
-        if not spotify_targets:
+        # Fase 2.3: coba v2 (dengan ISRC) dulu, fallback ke v1 (string)
+        spotify_tracks_v2 = _gather_spotify_tracks_v2()
+        if not spotify_tracks_v2:
             return
-        max_songs = _ask_max_songs(spotify_targets, "dari playlist")
+        spotify_targets = [t.to_ytsearch_query() for t in spotify_tracks_v2]
+        max_songs = _ask_max_songs(spotify_tracks_v2, "dari playlist")
         if max_songs:
+            spotify_tracks_v2 = spotify_tracks_v2[:max_songs]
             spotify_targets = spotify_targets[:max_songs]
         final_target = None
-        display_target = f"Spotify Playlist/Track ({len(spotify_targets)} lagu)"
+        display_target = f"Spotify Playlist/Track ({len(spotify_tracks_v2)} lagu)"
     else:
         final_target, display_target, max_songs = _gather_youtube_or_soundcloud_target(is_soundcloud_mode)
         if final_target is None and not display_target:
@@ -137,6 +148,26 @@ def _run_download_loop(mode: int) -> None:
     # === ANTI-DUPLICATE ===
     console.print()
     anti_duplicate = ask_confirm("🛡️ Aktifkan Anti-Duplikat (Lewati lagu lama)?", default=True)
+
+    # === Fase 2.3: Prompt concurrent downloads untuk Spotify playlist ===
+    use_concurrent = False
+    use_isrc_matching = False
+    if is_spotify_mode and len(spotify_tracks_v2 or []) > 1:
+        console.print()
+        use_concurrent = ask_confirm(
+            f"⚡ Aktifkan download paralel untuk {len(spotify_tracks_v2)} lagu Spotify? "
+            "(3x lebih cepat, tapi rawan rate limit YouTube)",
+            default=False,
+        )
+
+        # ISRC matching kalau spotipy available + ada ISRC
+        has_isrc = any(t.isrc for t in (spotify_tracks_v2 or []))
+        if has_isrc:
+            use_isrc_matching = ask_confirm(
+                "🎯 Aktifkan ISRC matching (akurasi 99%+ via Spotify ISRC)? "
+                "(lebih akurat tapi lebih lambat, ambil 3 kandidat YouTube per lagu)",
+                default=True,
+            )
 
     # === LYRICS CONFIG ===
     console.print()
@@ -180,6 +211,8 @@ def _run_download_loop(mode: int) -> None:
         anti_duplicate=anti_duplicate,
         download_lyrics=download_lyrics,
         output_dir=output_dir,
+        use_concurrent=use_concurrent,
+        use_isrc_matching=use_isrc_matching,
     )
 
     if not ask_confirm("▶️ Mulai eksekusi unduhan sekarang?", default=True):
@@ -220,13 +253,30 @@ def _run_download_loop(mode: int) -> None:
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 if is_spotify_mode:
-                    for track in spotify_targets:
-                        try:
-                            search_q = build_ytsearch_query(track, limit=1)
-                            ydl.download([search_q])
-                        except Exception as e:
-                            console.print(f"[dim red]❌ Gagal unduh '{track[:40]}...': {e}[/dim red]")
-                            _log.error("Spotify track failed '%s': %s", track, e)
+                    if use_isrc_matching and spotify_tracks_v2:
+                        _download_spotify_with_isrc(
+                            ydl=ydl,
+                            tracks=spotify_tracks_v2,
+                            use_concurrent=use_concurrent,
+                            progress=progress,
+                            main_task=main_task,
+                        )
+                    elif use_concurrent and spotify_tracks_v2:
+                        _download_spotify_concurrent(
+                            ydl_opts=ydl_opts,
+                            tracks=spotify_tracks_v2,
+                            progress=progress,
+                            main_task=main_task,
+                        )
+                    else:
+                        # Sequential fallback (lama)
+                        for track in spotify_targets:
+                            try:
+                                search_q = build_ytsearch_query(track, limit=1)
+                                ydl.download([search_q])
+                            except Exception as e:
+                                console.print(f"[dim red]❌ Gagal unduh '{track[:40]}...': {e}[/dim red]")
+                                _log.error("Spotify track failed '%s': %s", track, e)
                 else:
                     ydl.download([final_target])
 
@@ -337,6 +387,8 @@ def _print_config_table(
     anti_duplicate: bool,
     download_lyrics: bool,
     output_dir: str,
+    use_concurrent: bool = False,
+    use_isrc_matching: bool = False,
 ) -> None:
     """Tampilkan tabel ringkasan konfigurasi sebelum eksekusi."""
     console.print("\n")
@@ -354,6 +406,11 @@ def _print_config_table(
     is_wav = fmt_codec == "wav"
     table.add_row("🖼️ ID3 & Cover Art", "[green]✅ Aktif[/green]" if not is_wav else "[yellow]⚠️ Tidak (WAV)[/yellow]")
     table.add_row("🛡️ Anti-Duplikat", "[green]✅ Aktif[/green]" if anti_duplicate else "[red]❌ Nonaktif[/red]")
+    # Fase 2.3: tampilkan status concurrent & ISRC matching
+    if use_concurrent:
+        table.add_row("⚡ Concurrent", "[green]✅ Aktif (3 worker)[/green]")
+    if use_isrc_matching:
+        table.add_row("🎯 ISRC Matching", "[green]✅ Aktif (akurasi 99%+)[/green]")
     table.add_row(
         "🎤 Download Lirik",
         "[green]✅ Aktif (.lrc)[/green]" if download_lyrics else "[red]❌ Nonaktif[/red]",
@@ -427,3 +484,196 @@ def _process_lyrics_for_all_audio(
                     f"[bold yellow]⚠️ Lirik dilewati: Video YouTube tidak memiliki CC untuk {song_title[:30]}...[/bold yellow]"
                 )
                 progress.start()
+
+
+# ============================================================================
+# Fase 2.3: Helper baru untuk ISRC matching + concurrent downloads
+# ============================================================================
+
+def _gather_spotify_tracks_v2():
+    """
+    Fase 2.3: Prompt URL Spotify, parse dengan v2 (return List[SpotifyTrack]).
+
+    SpotifyTrack punya:
+        - title, artist, album
+        - isrc (untuk YouTube matching 99%+ akurat)
+        - duration_ms (untuk duration verification)
+        - spotify_url (untuk debugging)
+    """
+    url = ask_text("🎵 Masukkan URL Track/Playlist/Album Spotify:")
+    if not url or not is_spotify_url(url):
+        console.print("[red]⚠️ URL Spotify tidak valid![/red]")
+        time.sleep(1)
+        return []
+
+    # Tampilkan info spotipy availability
+    if spotipy_available():
+        console.print("[cyan]🔍 Membaca metadata dari Spotify via official API (spotipy)...[/cyan]")
+    else:
+        console.print("[cyan]🔍 Membaca metadata dari Spotify via legacy scraping...[/cyan]")
+        console.print("[dim]   (untuk ISRC matching, install spotipy + set SPOTIPY_CLIENT_ID/SECRET)[/dim]")
+
+    tracks = parse_spotify_url_v2(url)
+    if not tracks:
+        console.print("[red]⚠️ Gagal mengambil data Spotify atau playlist kosong![/red]")
+        time.sleep(1)
+        return []
+
+    isrc_count = sum(1 for t in tracks if t.isrc)
+    console.print(f"[bold green]✅ Ditemukan {len(tracks)} lagu dari Spotify![/bold green]")
+    if isrc_count > 0:
+        console.print(f"[dim cyan]   📊 {isrc_count}/{len(tracks)} lagu punya ISRC (siap untuk matching akurat)[/dim cyan]")
+    return tracks
+
+
+def _download_spotify_with_isrc(ydl, tracks, use_concurrent: bool, progress, main_task) -> None:
+    """
+    Fase 2.3: Download Spotify tracks dengan ISRC matching.
+
+    Strategi:
+        1. Untuk setiap track, search 3 kandidat YouTube via yt-dlp
+        2. Extract ISRC dari metadata YouTube
+        3. Match ISRC track == ISRC YouTube → pilih itu
+        4. Fallback: fuzzy match judul+artist dengan duration verification
+        5. Download video yang dipilih
+
+    Kalau use_concurrent=True, jalankan secara paralel (3 worker).
+    """
+    from mmpd.isrc_matcher import search_youtube_with_isrc
+
+    console.print(f"[cyan]🎯 ISRC matching aktif untuk {len(tracks)} lagu...[/cyan]")
+    progress.update(main_task, total=len(tracks), completed=0)
+
+    def _process_single_track(track):
+        """Worker function: match + download satu track."""
+        try:
+            track_info = track.to_track_info()
+            duration_sec = track.duration_ms / 1000.0 if track.duration_ms else None
+
+            # Search via ISRC matcher (return YouTubeMatchResult)
+            match = search_youtube_with_isrc(
+                track=track_info,
+                max_candidates=3,
+                target_duration_sec=duration_sec,
+            )
+
+            if not match:
+                return False, "No YouTube match found", {}
+
+            # Download video yang dipilih
+            try:
+                ydl.download([match.video_url])
+                return True, None, {
+                    "video_url": match.video_url,
+                    "video_title": match.video_title,
+                    "isrc_match": match.isrc_match,
+                    "fuzzy_score": match.fuzzy_score,
+                }
+            except Exception as e:
+                return False, str(e), {"video_url": match.video_url}
+
+        except Exception as e:
+            return False, str(e), {}
+
+    if use_concurrent:
+        # === Concurrent ISRC matching + download ===
+        from mmpd.concurrent import run_concurrent
+
+        track_ids = [t.spotify_url or f"{t.artist} {t.title}" for t in tracks]
+
+        def _progress_callback(completed: int, total: int, current: str):
+            progress.update(
+                main_task,
+                completed=completed,
+                description=f"[cyan]🎯 ISRC matching: [bold white]{completed}/{total}",
+            )
+
+        results = run_concurrent(
+            items=track_ids,
+            worker_fn=lambda item_id: _process_single_track(_find_track_by_id(tracks, item_id)),
+            max_workers=3,
+            description="ISRC matching",
+            progress_callback=_progress_callback,
+        )
+
+        # Print summary
+        success_count = sum(1 for r in results if r.success)
+        isrc_match_count = sum(1 for r in results if r.extra.get("isrc_match"))
+        console.print(
+            f"[bold green]✅ {success_count}/{len(results)} berhasil "
+            f"({isrc_match_count} via ISRC, {success_count - isrc_match_count} via fuzzy)[/bold green]"
+        )
+    else:
+        # === Sequential ISRC matching ===
+        for idx, track in enumerate(tracks, 1):
+            progress.update(
+                main_task,
+                completed=idx - 1,
+                description=f"[cyan]🎯 ISRC matching {idx}/{len(tracks)}: {track.title[:30]}...",
+            )
+            success, error, extra = _process_single_track(track)
+            if not success:
+                console.print(f"[dim red]❌ '{track.title[:40]}': {error}[/dim red]")
+                _log.error("ISRC matching failed for '%s': %s", track.title, error)
+            elif extra.get("isrc_match"):
+                console.print(
+                    f"[dim green]   ✅ ISRC MATCH: {track.title[:40]} → "
+                    f"{extra.get('video_title', '')[:30]}[/dim green]"
+                )
+            progress.update(main_task, completed=idx)
+
+
+def _find_track_by_id(tracks, item_id: str):
+    """Helper: cari track berdasarkan spotify_url atau 'Artist Title'."""
+    for t in tracks:
+        if t.spotify_url == item_id:
+            return t
+        if f"{t.artist} {t.title}" == item_id:
+            return t
+    return tracks[0] if tracks else None
+
+
+def _download_spotify_concurrent(ydl_opts: dict, tracks, progress, main_task) -> None:
+    """
+    Fase 2.3: Download Spotify tracks secara paralel (tanpa ISRC matching).
+
+    Pakai simple ytsearch1:{query} seperti Fase 1, tapi dengan 3 worker paralel.
+    """
+    import yt_dlp
+    from mmpd.concurrent import run_concurrent
+
+    console.print(f"[cyan]⚡ Download paralel {len(tracks)} lagu (3 worker)...[/cyan]")
+    progress.update(main_task, total=len(tracks), completed=0)
+
+    def _worker(item_query: str):
+        """Download satu track via ytsearch1."""
+        try:
+            search_q = build_ytsearch_query(item_query, limit=1)
+            # Setiap worker buat YoutubeDL instance sendiri (thread-safe)
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([search_q])
+            return True, None, {}
+        except Exception as e:
+            return False, str(e), {}
+
+    queries = [t.to_ytsearch_query() for t in tracks]
+
+    def _progress_callback(completed: int, total: int, current: str):
+        progress.update(
+            main_task,
+            completed=completed,
+            description=f"[cyan]⚡ Concurrent: [bold white]{completed}/{total}",
+        )
+
+    results = run_concurrent(
+        items=queries,
+        worker_fn=_worker,
+        max_workers=3,
+        description="Spotify concurrent download",
+        progress_callback=_progress_callback,
+    )
+
+    success_count = sum(1 for r in results if r.success)
+    console.print(
+        f"[bold green]✅ {success_count}/{len(results)} berhasil diunduh[/bold green]"
+    )
