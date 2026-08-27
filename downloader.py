@@ -92,6 +92,33 @@ def sync_huawei_lrc(lrc_path):
         except Exception as e:
             console.print(f"[dim yellow]⚠️ Gagal sinkronisasi LRC ({os.path.basename(lrc_path)}): {e}[/dim yellow]")
 
+def _atomic_write_text(path, content):
+    """
+    Fix R2 (atomic write): Tulis file secara atomik untuk mencegah korupsi
+    jika proses crash di tengah penulisan (mis. Ctrl+C saat menulis LRC).
+    
+    Pattern: tulis ke temporary file di direktori yang sama, lalu os.replace()
+    untuk swap atomik (atomic rename) ke path final. os.replace() adalah
+    operasi atomic di POSIX & Windows, sehingga file final selalu utuh
+    (versi lama atau versi baru — tidak pernah setengah jadi).
+    """
+    import tempfile
+    dir_path = os.path.dirname(path) or '.'
+    fd, tmp_path = tempfile.mkstemp(dir=dir_path, prefix='.atomic_', suffix='.tmp')
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8') as f:
+            f.write(content)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, path)
+    except Exception:
+        # Bersihkan temporary file jika os.replace() gagal
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+        raise
+
 def process_transliteration(lrc_path, transliterate_mode):
     """Mengubah huruf Jepang/Mandarin/Korea/Lainnya di dalam file LRC menjadi Romaji/Pinyin/Latin"""
     if not os.path.exists(lrc_path): return
@@ -140,7 +167,13 @@ def process_transliteration(lrc_path, transliterate_mode):
                     time_tag = re.match(r'\[.*?\]', line)
                     text = re.sub(r'\[.*?\]', '', line).strip()
                     py_list = pinyin(text, style=Style.NORMAL)
-                    new_text = "".join([item[0] + " " if item[0].isascii() == False else item[0] for item in py_list])
+                    # Fix B3 (bug logika): kode lama memakai `item[0].isascii() == False`
+                    # yang SELALU False karena pypinyin selalu menghasilkan ASCII.
+                    # Akibatnya spasi antar kata tidak pernah disisipkan, sehingga
+                    # output Pinyin menempel tanpa pemisah (mis. "wǒaìshàngwǎng").
+                    # Versi baru: gabungkan setiap suku kata Pinyin dengan spasi
+                    # sehingga terbaca natural ("wǒ ài shàng wǎng").
+                    new_text = " ".join([item[0] for item in py_list])
                     new_lines.append(f"{time_tag.group(0) if time_tag else ''}{new_text}\n")
                 else:
                     new_lines.append(line)
@@ -154,7 +187,10 @@ def process_transliteration(lrc_path, transliterate_mode):
                     try:
                         new_text = Romanizer(text).romanize()
                         new_lines.append(f"{time_tag.group(0) if time_tag else ''}{new_text}\n")
-                    except:
+                    # Fix R1: bare except menelan KeyboardInterrupt & SystemExit.
+                    # Pakai \`except Exception as e:\` agar Ctrl+C masih bisa menghentikan proses.
+                    except Exception as e:
+                        console.print(f"[dim yellow]⚠️ Romanizer gagal untuk baris ({e}). Memakai teks asli.[/dim yellow]")
                         new_lines.append(line)
                 else:
                     new_lines.append(line)
@@ -171,8 +207,9 @@ def process_transliteration(lrc_path, transliterate_mode):
                 else:
                     new_lines.append(line)
                     
-        with open(lrc_path, 'w', encoding='utf-8') as f:
-            f.writelines(new_lines)
+        # Fix R2: gunakan _atomic_write_text agar file LRC tidak korup jika
+        # proses terputus (Ctrl+C, signal, OOM) di tengah penulisan.
+        _atomic_write_text(lrc_path, "".join(new_lines))
     except Exception as e:
         console.print(f"[dim yellow]⚠️ Gagal melakukan transliterasi pada {os.path.basename(lrc_path)}: {e}[/dim yellow]")
 
@@ -249,10 +286,19 @@ def process_translation(lrc_path, translate_mode):
                 match = re.match(r'(\[.*?\])', line)
                 if match:
                     timestamp = match.group(1)
-                    output.append(f"{timestamp} ({t_text})")
+                    # Fix B4 (format non-standard): kode lama menulis terjemahan
+                    # sebagai \`timestamp (translation)\` dalam satu baris. Format
+                    # parenthetical TIDAK dikenali oleh Huawei Music, Poweramp,
+                    # BlackPlayer, AIMP, dan mayoritas player mobile.
+                    # Standar LRC bilingual yang kompatibel: dua baris dengan
+                    # timestamp identik (satu untuk lirik asli, satu untuk
+                    # terjemahan). Player yang mendukung bilingual (termasuk
+                    # Huawei Music karaoke) akan menampilkannya berdampingan.
+                    output.append(f"{timestamp}{t_text}")
                     
-        with open(lrc_path, 'w', encoding='utf-8') as f:
-            f.write("\n".join(output))
+        # Fix R2: gunakan _atomic_write_text agar file LRC tidak korup jika
+        # proses terputus di tengah penulisan terjemahan bilingual.
+        _atomic_write_text(lrc_path, "\n".join(output))
             
     except Exception as e:
         console.print(f"[dim yellow]⚠️ Gagal menerjemahkan lirik pada {os.path.basename(lrc_path)}: {e}[/dim yellow]")
@@ -274,18 +320,34 @@ def fetch_synced_lyrics(title, lrc_path, sync_huawei, transliterate_mode="❌ 1"
             try:
                 import requests
                 smart_query = re.sub(r'(?i)(official|music video|mv|lyric|video|audio|cover)', '', clean_title).strip()
-                res = requests.get(f"https://itunes.apple.com/search?term={smart_query}&entity=song&limit=1", timeout=5).json()
-                if res.get('resultCount', 0) > 0:
-                    track = res['results'][0]['trackName']
-                    artist = res['results'][0]['artistName']
+                # Fix B2 (silently fail): kode lama memakai \`import requests\` tapi
+                # requests TIDAK ada di requirements.txt. Setiap ImportError ditelan
+                # \`except: pass\` sehingga fitur "Formula Cerdas" mati tanpa user tahu.
+                # Sekarang requests sudah dideklarasikan; kita juga log error eksplisit.
+                from urllib.parse import quote
+                encoded_query = quote(smart_query)
+                res = requests.get(
+                    f"https://itunes.apple.com/search?term={encoded_query}&entity=song&limit=1",
+                    timeout=5,
+                    headers={'User-Agent': 'Mozilla/5.0'}
+                )
+                res.raise_for_status()
+                data = res.json()
+                if data.get('resultCount', 0) > 0:
+                    track = data['results'][0]['trackName']
+                    artist = data['results'][0]['artistName']
                     smart_title = f"{artist} {track}"
                     console.print(f"   [dim cyan]🔍 Formula Cerdas mendeteksi judul resmi: '{smart_title}'. Mencoba ulang...[/dim cyan]")
                     lrc_text = syncedlyrics.search(smart_title)
-            except:
-                pass
+            except ImportError:
+                # Fallback jika requests belum terinstal (seharusnya tidak terjadi setelah fix requirements)
+                console.print("[dim yellow]⚠️ Modul 'requests' belum terinstal — Fitur Formula Cerdas (iTunes) dilewati.[/dim yellow]")
+            except Exception as e:
+                # Fix R1: bare except → except Exception as e. Log setiap kegagalan agar transparan.
+                console.print(f"[dim yellow]⚠️ Formula Cerdas iTunes gagal: {e}[/dim yellow]")
         if lrc_text:
-            with open(lrc_path, 'w', encoding='utf-8') as f:
-                f.write(lrc_text)
+            # Fix R2: tulis hasil lirik dari syncedlyrics secara atomik juga.
+            _atomic_write_text(lrc_path, lrc_text)
             process_transliteration(lrc_path, transliterate_mode)
             process_translation(lrc_path, translate_mode)
             if sync_huawei:
@@ -378,8 +440,13 @@ def run_retrofit():
     # Langkah 0.5: Bersihkan file sampah sisa timeout sebelumnya (.vtt, .part, .json)
     junk_files = glob.glob(os.path.join(target_folder, "**", "temp_meta_*"), recursive=True)
     for junk in junk_files:
-        try: os.remove(junk)
-        except: pass
+        try:
+            os.remove(junk)
+        # Fix R1: bare except → except Exception as e. FileNotFoundError boleh diabaikan diam-diam.
+        except FileNotFoundError:
+            pass
+        except Exception as e:
+            console.print(f"[dim yellow]⚠️ Gagal menghapus sampah {os.path.basename(junk)}: {e}[/dim yellow]")
             
     if fixed_lrc_count > 0:
         console.print(f"[bold green]✅ Berhasil memperbaiki penamaan & sinkronisasi {fixed_lrc_count} file Lirik lama secara instan![/bold green]")
@@ -447,6 +514,11 @@ def run_retrofit():
                 'file_access_retries': 5,
                 'fragment_retries': 5,
                 'outtmpl': temp_outtmpl,
+                # Fix R13: restrictfilenames memaksa yt-dlp hanya menggunakan
+                # karakter [a-zA-Z0-9._-] sehingga filename aman lintas-platform.
+                # Tanpa ini, judul seperti `Song: A/B/C` menghasilkan file path
+                # ilegal di Windows NTFS (/, :, *, ?, \", <, >, | semua dilarang).
+                'restrictfilenames': True,
                 'quiet': True,
                 'no_warnings': True,
                 'logger': YTDLPLogger()
@@ -462,8 +534,11 @@ def run_retrofit():
             try:
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     ydl.download([search_query])
-            except Exception:
-                pass
+            # Fix R1: walau \`except Exception:\` sudah spesifik, kita log agar user tahu
+            # video mana yang gagal di-fetch metadata/thumbnail. Tanpa ini, retrofit
+            # mode terlihat "berhasil" padahal cover art tidak pernah ter-download.
+            except Exception as e:
+                console.print(f"[dim yellow]⚠️ Gagal ambil metadata YouTube untuk '{title[:30]}...': {e}[/dim yellow]")
                 
             # Hapus lirik lama jika diminta
             if force_overwrite_lrc and os.path.exists(lrc_path):
@@ -510,12 +585,47 @@ def run_retrofit():
                     temp_audio = os.path.join(dir_path, f"temp_{filename}")
                     progress.update(main_task, description=f"[magenta]Menyuntikkan Cover: [bold white]{title[:20]}...")
                     
+                    # Fix S1 (command injection): kode lama memakai os.system(cmd)
+                    # dengan string interpolation dari path filesystem user. Jika
+                    # ada file bernama \`song\"; rm -rf ~; echo \".mp3\`, shell akan
+                    # mengeksekusi perintah berbahaya. Sekarang kita pakai
+                    # subprocess.run() dengan list argumen — TIDAK ada shell
+                    # interpolation, argumen dilewatkan langsung ke execvp().
+                    import subprocess
                     if ext == '.mp3':
-                        cmd = f'ffmpeg -y -v quiet -i "{audio_path}" -i "{cover_path}" -map 0:0 -map 1:0 -c copy -id3v2_version 3 -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" "{temp_audio}"'
+                        ffmpeg_cmd = [
+                            'ffmpeg', '-y', '-v', 'quiet',
+                            '-i', audio_path,
+                            '-i', cover_path,
+                            '-map', '0:0', '-map', '1:0',
+                            '-c', 'copy',
+                            '-id3v2_version', '3',
+                            '-metadata:s:v', 'title=Album cover',
+                            '-metadata:s:v', 'comment=Cover (front)',
+                            temp_audio
+                        ]
                     elif ext == '.flac':
-                        cmd = f'ffmpeg -y -v quiet -i "{audio_path}" -i "{cover_path}" -map 0:0 -map 1:0 -c copy -disposition:v attached_pic "{temp_audio}"'
+                        ffmpeg_cmd = [
+                            'ffmpeg', '-y', '-v', 'quiet',
+                            '-i', audio_path,
+                            '-i', cover_path,
+                            '-map', '0:0', '-map', '1:0',
+                            '-c', 'copy',
+                            '-disposition:v', 'attached_pic',
+                            temp_audio
+                        ]
+                    else:
+                        ffmpeg_cmd = None
                     
-                    os.system(cmd)
+                    if ffmpeg_cmd:
+                        try:
+                            subprocess.run(ffmpeg_cmd, check=True, capture_output=True, text=True)
+                        except subprocess.CalledProcessError as e:
+                            console.print(f"[dim red]❌ FFmpeg gagal menyuntik cover untuk {filename}: {e.stderr.strip() if e.stderr else str(e)}[/dim red]")
+                        except FileNotFoundError:
+                            console.print(f"[dim red]❌ FFmpeg tidak ditemukan di PATH. Pastikan sudah terinstal.[/dim red]")
+                        except Exception as e:
+                            console.print(f"[dim red]❌ Error tak terduga saat injeksi cover {filename}: {e}[/dim red]")
                     
                     # Ganti file asli dengan yang sudah disuntik jika berhasil
                     if os.path.exists(temp_audio) and os.path.getsize(temp_audio) > 0:
@@ -528,8 +638,11 @@ def run_retrofit():
                 try:
                     if os.path.exists(junk):
                         os.remove(junk)
-                except Exception:
+                # Fix R1: log failure agar visible, kecuali FileNotFoundError (race condition dengan cleanup paralel).
+                except FileNotFoundError:
                     pass
+                except Exception as e:
+                    console.print(f"[dim yellow]⚠️ Gagal hapus {os.path.basename(junk)}: {e}[/dim yellow]")
                         
             progress.advance(main_task)
             
@@ -800,6 +913,11 @@ def run_cli():
             'sleep_interval_requests': 1,  # Jeda aman saat ekstraksi list lagu
             'sleep_interval': 2,           # Jeda acak minimal 2 detik sebelum unduh
             'max_sleep_interval': 5,       # Jeda acak maksimal 5 detik (menghindari deteksi bot)
+            # Fix R13: restrictfilenames memaksa yt-dlp hanya menggunakan
+            # karakter [a-zA-Z0-9._-] sehingga filename aman lintas-platform.
+            # Mencegah folder/file dengan karakter ilegal (/, :, *, ?, \", <, >, |)
+            # di windows NTFS dan menyederhanakan matching LRC dengan audio.
+            'restrictfilenames': True,
             'quiet': True,
             'no_warnings': True,
             'logger': YTDLPLogger(),
@@ -849,8 +967,14 @@ def run_cli():
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     if is_spotify_mode:
                         for track in spotify_targets:
-                            try: ydl.download([f"ytsearch1:{track}"])
-                            except Exception: pass
+                            # Fix R1: log lagu Spotify yang gagal agar user tahu lagu mana yang skip.
+                            # Sebelumnya \`except Exception: pass\` menyembunyikan kegagalan total,
+                            # sehingga playlist Spotify terlihat "sukses download" padahal banyak
+                            # lagu yang gagal matching tanpa kabar.
+                            try:
+                                ydl.download([f"ytsearch1:{track}"])
+                            except Exception as e:
+                                console.print(f"[dim red]❌ Gagal unduh '{track[:40]}...': {e}[/dim red]")
                     else:
                         ydl.download([final_target])
                     
