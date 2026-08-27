@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "music-mix-playlist-downloader"
-version = "3.3.0"
+version = "3.4.0"
 description = "CLI Next-Gen untuk download YouTube Mix, Playlist Spotify, SoundCloud dengan AI Lyrics Engine"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -130,6 +130,38 @@ minversion = "8.0"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 addopts = "-ra -q --strict-markers"
+# Coverage config
+markers = [
+    "slow: marks tests as slow (deselect with -m 'not slow')",
+    "integration: marks tests that need real network (deselect with -m 'not integration')",
+    "requires_yt_dlp: marks tests that need yt-dlp runtime (not mockable)",
+]
+
+[tool.coverage.run]
+source = ["mmpd"]
+branch = true
+omit = [
+    "*/tests/*",
+    "*/__main__.py",  # Entry point, hard to test
+    "*/doctor.py",    # Mostly I/O, low value to test
+    # Fase 3: modul berikut butuh UI/yt_dlp mocking kompleks, target untuk Fase 4
+    "*/modes/*",      # UI-heavy, butuh questionary mock
+    "*/ui.py",        # UI constants & helpers (low test value)
+    "*/spotify.py",   # Wrapper, sudah di-test via test_spotify_client.py
+]
+
+[tool.coverage.report]
+# Target coverage untuk modul yang di-test: 70%+
+# Modul yang di-omit (modes, ui, spotify) akan di-test di Fase 4
+fail_under = 70
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+]
 
 [tool.ruff]
 line-length = 100

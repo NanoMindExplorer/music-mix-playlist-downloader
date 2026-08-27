@@ -2,6 +2,35 @@
 
 Aplikasi CLI interaktif *Next-Gen* untuk mendownload YouTube Mix, Playlist Spotify, SoundCloud, dan lainnya secara otomatis, lalu mengonversinya menjadi audio berkualitas tinggi (MP3/FLAC/WAV). Dilengkapi dengan **Kecerdasan Buatan (AI)** untuk menerjemahkan lirik, mengubah huruf asing ke alfabet Latin (Transliterasi), dan memanajemen perpustakaan musik Anda bak seorang profesional!
 
+## 🆕 Apa Baru di v3.4 (Fase 3 — Testing & QA)
+
+- **Unit tests komprehensif** (10 file test, 100+ test cases) untuk semua modul modular
+- **Coverage target 80%+** via pytest-cov dengan config di `pyproject.toml`
+- **GitHub Actions CI/CD** — auto-run tests di setiap push/PR (Python 3.9-3.14)
+- **Mock strategy** — tidak hit network saat test (mock yt_dlp, spotipy, requests, pykakasi)
+- **Test fixtures** di `tests/conftest.py` (mock_track_info, mock_youtube_entry, dll)
+- **CI status badge** — lihat status build real-time di README
+- **Type check** via mypy (non-blocking untuk saat ini)
+- **Linting** via ruff (non-blocking untuk saat ini)
+
+### Run tests locally
+
+```bash
+# Install dev dependencies
+pip install -r requirements.txt -r requirements-dev.txt
+
+# Run semua test
+pytest tests/ -v
+
+# Run dengan coverage report
+pytest tests/ --cov=mmpd --cov-report=term
+
+# Generate HTML coverage report (buka htmlcov/index.html)
+pytest tests/ --cov=mmpd --cov-report=html
+```
+
+Lihat [`tests/README.md`](tests/README.md) untuk dokumentasi lengkap test suite.
+
 ## 🆕 Apa Baru di v3.3 (Fase 2.3 — Spotify Modernization)
 
 - **Spotify official API** via `spotipy` (menggantikan scraping `__NEXT_DATA__` yang rapuh)
