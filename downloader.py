@@ -1,8 +1,28 @@
+"""
+music-mix-playlist-downloader — CLI utama.
+
+Fase 2.1 refactor: tetap backward compatible dengan `python downloader.py`,
+tapi sekarang bisa juga dijalankan via:
+  - `python -m mmpd`            (module entry)
+  - `mmpd`                      (entry point setelah `pip install .`)
+  - `mmpd doctor`              (diagnostics)
+
+Modul-modul infrastruktur dipindah ke package `mmpd/`:
+  - mmpd.config           — path & environment detection terpusat
+  - mmpd.logger           — structured logging dengan file rotation
+  - mmpd.lyrics_providers — LRCLIB + syncedlyrics dengan fallback chain
+  - mmpd.doctor           — `mmpd doctor` command
+"""
+
+from __future__ import annotations
+
 import os
 import sys
 import shutil
 import glob
 from pathlib import Path
+from typing import Any, Optional
+
 import yt_dlp
 import questionary
 from rich.console import Console
@@ -12,10 +32,42 @@ from urllib.error import HTTPError
 import urllib.request
 import re
 import json
+
 from spotify_parser import parse_spotify_url
+
+# Fase 2.1: integrate mmpd package (logging + config + lyrics providers)
+try:
+    from mmpd.logger import get_logger, setup_logging
+    from mmpd.config import get_config, get_output_dir, get_musiclrc_dir, is_termux
+    from mmpd.lyrics_providers import build_default_chain
+    from mmpd.types import TrackInfo, LyricsResult
+    # Initialize logging ASAP (file-based, dengan rotation)
+    setup_logging()
+    _log = get_logger()
+    _MMPD_AVAILABLE = True
+except ImportError:
+    # Fallback: kalau mmpd/ package tidak terinstal (mis. user hanya copy downloader.py)
+    # tetap jalan dengan logger dummy dan config inline
+    _MMPD_AVAILABLE = False
+    import logging
+    _log = logging.getLogger("mmpd")
+    _log.addHandler(logging.NullHandler())
+    def get_output_dir() -> str:
+        if "PREFIX" in os.environ and "com.termux" in os.environ.get("PREFIX", ""):
+            return str(Path.home() / "storage" / "downloads" / "YT_Downloader")
+        return str(Path.home() / "Downloads" / "YT_Downloader")
+    def get_musiclrc_dir() -> str:
+        return os.path.join(str(Path.home()), "storage", "shared", "Music", "Musiclrc")
+    def is_termux() -> bool:
+        return "PREFIX" in os.environ and "com.termux" in os.environ.get("PREFIX", "")
+
 try:
     import syncedlyrics
-    # Patch bawaan syncedlyrics yang membatasi timeout koneksi menjadi 2 detik (terlalu singkat untuk Termux/koneksi lambat)
+    # Patch bawaan syncedlyrics yang membatasi timeout koneksi menjadi 2 detik
+    # (terlalu singkat untuk Termux/koneksi lambat).
+    # Catatan: Fase 2.1 sudah memindahkan logic ini ke mmpd.lyrics_providers,
+    # tapi tetap dipertahankan di sini untuk backward compatibility (kalau user
+    # masih pakai syncedlyrics langsung di luar LyricsChain).
     from syncedlyrics.providers.base import TimeoutSession
     def custom_request(self, method, url, **kwargs):
         kwargs.setdefault("timeout", (10, 30)) # Connect 10s, Read 30s
@@ -26,6 +78,7 @@ except ModuleNotFoundError:
     print("Silakan jalankan perintah berikut untuk menginstal pembaruan:")
     print("pip install -U -r requirements.txt\n")
     sys.exit(1)
+
 from rich.table import Table
 from rich.text import Text
 from rich.progress import (
@@ -73,24 +126,29 @@ def print_banner():
     ))
     console.print()
 
-def get_default_path():
-    if "PREFIX" in os.environ and "com.termux" in os.environ.get("PREFIX", ""):
-        return str(Path.home() / "storage" / "downloads" / "YT_Downloader")
-    return str(Path.home() / "Downloads" / "YT_Downloader")
+def get_default_path() -> str:
+    """Backward-compat: delegasikan ke mmpd.config.get_output_dir()."""
+    return get_output_dir()
 
-def sync_huawei_lrc(lrc_path):
-    """Menyalin file .lrc ke folder khusus Musiclrc bawaan Huawei/Android"""
-    if "PREFIX" in os.environ and "com.termux" in os.environ.get("PREFIX", ""):
-        # Gunakan path shared/Music agar dijamin mengarah ke Internal Storage/Music
-        huawei_dir = os.path.join(str(Path.home()), "storage", "shared", "Music", "Musiclrc")
-        try:
-            os.makedirs(huawei_dir, exist_ok=True)
-            filename = os.path.basename(lrc_path)
-            # Pastikan file lrc yang di-copy memang ada
-            if os.path.exists(lrc_path):
-                shutil.copy2(lrc_path, os.path.join(huawei_dir, filename))
-        except Exception as e:
-            console.print(f"[dim yellow]⚠️ Gagal sinkronisasi LRC ({os.path.basename(lrc_path)}): {e}[/dim yellow]")
+def sync_huawei_lrc(lrc_path: str) -> None:
+    """Menyalin file .lrc ke folder khusus Musiclrc bawaan Huawei/Android.
+    
+    Fase 2.1: path detection didelegasikan ke mmpd.config.get_musiclrc_dir()
+    agar konsisten dengan modul lain dan mudah di-test.
+    """
+    if not is_termux():
+        return
+    huawei_dir = get_musiclrc_dir()
+    try:
+        os.makedirs(huawei_dir, exist_ok=True)
+        filename = os.path.basename(lrc_path)
+        # Pastikan file lrc yang di-copy memang ada
+        if os.path.exists(lrc_path):
+            shutil.copy2(lrc_path, os.path.join(huawei_dir, filename))
+            _log.debug("LRC synced to Huawei Musiclrc: %s", filename)
+    except Exception as e:
+        console.print(f"[dim yellow]⚠️ Gagal sinkronisasi LRC ({os.path.basename(lrc_path)}): {e}[/dim yellow]")
+        _log.warning("sync_huawei_lrc failed for %s: %s", os.path.basename(lrc_path), e)
 
 def _atomic_write_text(path, content):
     """
@@ -304,16 +362,33 @@ def process_translation(lrc_path, translate_mode):
         console.print(f"[dim yellow]⚠️ Gagal menerjemahkan lirik pada {os.path.basename(lrc_path)}: {e}[/dim yellow]")
 
 def fetch_synced_lyrics(title, lrc_path, sync_huawei, transliterate_mode="❌ 1", override_query=None, translate_mode=False):
-    """Menggunakan library pihak ketiga (syncedlyrics) untuk mendapatkan lirik Studio Quality tanpa diblokir YouTube"""
+    """Menggunakan LyricsProvider chain (LRCLIB → syncedlyrics) untuk mendapatkan lirik.
+    
+    Fase 2.1: sekarang pakai mmpd.lyrics_providers.build_default_chain() yang
+    mencoba LRCLIB API dulu (lebih akurat + database terbesar), lalu fallback
+    ke syncedlyrics (Musixmatch/NetEase/Megalobiz). Backward compatible: kalau
+    mmpd package tidak terinstal, otomatis pakai syncedlyrics langsung.
+    """
     try:
         if override_query:
             clean_title = override_query.strip()
         else:
-            # Hapus teks dalam kurung siku/biasa/jepang yang mengganggu pencarian lirik (e.g., "[Rainych]", "【Rainych】", "(Official Video)")
+            # Hapus teks dalam kurung siku/biasa/jepang yang mengganggu pencarian lirik
             import re
             clean_title = re.sub(r'\[.*?\]|\(.*?\)|【.*?】', '', title).strip()
         
-        lrc_text = syncedlyrics.search(clean_title)
+        # === Fase 2.1: pakai LyricsChain (LRCLIB → syncedlyrics) ===
+        lrc_text = None
+        if _MMPD_AVAILABLE:
+            track = TrackInfo(title=clean_title)
+            chain = build_default_chain()
+            result = chain.search(track)
+            if result and result.best_lyrics:
+                lrc_text = result.best_lyrics
+                _log.info("Lyrics found via %s for '%s'", result.provider, clean_title)
+        else:
+            # Fallback: syncedlyrics langsung (kalau mmpd package tidak terinstal)
+            lrc_text = syncedlyrics.search(clean_title)
         
         # [Formula Pencarian Cerdas] Jika gagal, gunakan iTunes API untuk menebak judul resmi Spotify!
         if not lrc_text and not override_query:
@@ -338,7 +413,15 @@ def fetch_synced_lyrics(title, lrc_path, sync_huawei, transliterate_mode="❌ 1"
                     artist = data['results'][0]['artistName']
                     smart_title = f"{artist} {track}"
                     console.print(f"   [dim cyan]🔍 Formula Cerdas mendeteksi judul resmi: '{smart_title}'. Mencoba ulang...[/dim cyan]")
-                    lrc_text = syncedlyrics.search(smart_title)
+                    _log.info("iTunes Formula Cerdas: '%s' → '%s'", clean_title, smart_title)
+                    # Coba lagi dengan smart_title via LyricsChain
+                    if _MMPD_AVAILABLE:
+                        track_info = TrackInfo(title=track, artist=artist)
+                        result2 = build_default_chain().search(track_info)
+                        if result2 and result2.best_lyrics:
+                            lrc_text = result2.best_lyrics
+                    else:
+                        lrc_text = syncedlyrics.search(smart_title)
             except ImportError:
                 # Fallback jika requests belum terinstal (seharusnya tidak terjadi setelah fix requirements)
                 console.print("[dim yellow]⚠️ Modul 'requests' belum terinstal — Fitur Formula Cerdas (iTunes) dilewati.[/dim yellow]")
@@ -1031,6 +1114,50 @@ def run_cli():
             break
 
 if __name__ == "__main__":
+    try:
+        run_cli()
+    except KeyboardInterrupt:
+        console.print("\n\n[bold red]Aplikasi dihentikan secara paksa (Ctrl+C).[/bold red]")
+        sys.exit(0)
+
+
+# ============================================================================
+# Fase 2.1: Public entry point untuk `mmpd` console script (lihat pyproject.toml)
+# ============================================================================
+def main() -> None:
+    """
+    Entry point untuk `mmpd` console script (setelah `pip install .`).
+
+    Mendukung subcommand:
+        mmpd             # mode interaktif (sama dengan `python downloader.py`)
+        mmpd doctor      # jalankan diagnostik
+        mmpd --version   # cetak versi
+
+    Backward compatible: `python downloader.py` tetap panggil `run_cli()` langsung.
+    """
+    # Parse argumen sederhana (subcommand)
+    args = sys.argv[1:]
+
+    # Subcommand: doctor
+    if args and args[0] == "doctor":
+        try:
+            from mmpd.doctor import run_doctor
+            sys.exit(run_doctor())
+        except ImportError:
+            print("❌ Subcommand 'doctor' butuh mmpd/ package terinstal.")
+            print("   Jalankan: pip install -e . (atau pip install -U -r requirements.txt)")
+            sys.exit(1)
+
+    # Subcommand: --version / -V
+    if args and args[0] in ("--version", "-V"):
+        try:
+            from mmpd import __version__
+            print(f"mmpd {__version__}")
+        except ImportError:
+            print("mmpd 3.1.0 (fallback)")
+        sys.exit(0)
+
+    # Default: jalankan CLI utama (sama dengan `python downloader.py`)
     try:
         run_cli()
     except KeyboardInterrupt:
