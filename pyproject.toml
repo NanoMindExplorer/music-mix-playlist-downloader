@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "music-mix-playlist-downloader"
-version = "3.4.0"
+version = "3.5.0"
 description = "CLI Next-Gen untuk download YouTube Mix, Playlist Spotify, SoundCloud dengan AI Lyrics Engine"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -144,16 +144,15 @@ omit = [
     "*/tests/*",
     "*/__main__.py",  # Entry point, hard to test
     "*/doctor.py",    # Mostly I/O, low value to test
-    # Fase 3: modul berikut butuh UI/yt_dlp mocking kompleks, target untuk Fase 4
-    "*/modes/*",      # UI-heavy, butuh questionary mock
-    "*/ui.py",        # UI constants & helpers (low test value)
-    "*/spotify.py",   # Wrapper, sudah di-test via test_spotify_client.py
+    # Fase 4: modes/ masih UI-heavy (butuh questionary mock kompleks)
+    # Target test untuk Fase 5
+    "*/modes/*",
 ]
 
 [tool.coverage.report]
-# Target coverage untuk modul yang di-test: 70%+
-# Modul yang di-omit (modes, ui, spotify) akan di-test di Fase 4
-fail_under = 70
+# Target coverage untuk modul yang di-test: 75%+
+# Fase 4: naikkan dari 70% ke 75% (actual: 77%)
+fail_under = 75
 show_missing = true
 exclude_lines = [
     "pragma: no cover",
