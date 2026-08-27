@@ -60,9 +60,11 @@ jobs:
           file: ./coverage.xml
           fail_ci_if_error: false  # Don't fail build if codecov upload fails
 
-      - name: Run mypy type check
+      - name: Run mypy type check (skip on Python 3.14 — mypy belum support)
+        if: matrix.python-version != '3.14'
         run: |
-          python -m mypy mmpd/ --ignore-missing-imports || true  # Non-blocking for now
+          pip install mypy types-requests
+          python -m mypy mmpd/ --ignore-missing-imports || true  # Non-blocking
         continue-on-error: true
 
       - name: Run ruff lint
@@ -103,11 +105,9 @@ jobs:
           path: dist/*.whl
           retention-days: 30
 
+  # Smoke test untuk memastikan package bisa di-install dan dijalankan
+  # dengan environment mirip Termux (Python 3.14, no GUI).
   smoke-test-termux:
-    """
-    Smoke test untuk memastikan package bisa di-install dan dijalankan
-    dengan environment mirip Termux (Python 3.14, no GUI).
-    """
     name: Termux Smoke Test (Python 3.14)
     runs-on: ubuntu-latest
     container:
