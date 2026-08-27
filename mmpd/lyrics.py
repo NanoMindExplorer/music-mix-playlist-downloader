@@ -91,9 +91,13 @@ def _transliterate_japanese(lines: List[str]) -> List[str]:
     k = kakasi()
     new_lines = []
     for line in lines:
-        if line.strip() and not line.strip().startswith("["):
+        # Fix Fase 3: bug lama `not line.strip().startswith("[")` akan skip baris
+        # yang dimulai dengan timestamp [00:00.00] — padahal baris itu justru
+        # yang perlu di-transliterasi (teks lirik ada setelah timestamp).
+        # Logic baru: proses baris yang punya teks non-timestamp.
+        text = re.sub(r"\[.*?\]", "", line).strip()
+        if text:
             time_tag = re.match(r"\[.*?\]", line)
-            text = re.sub(r"\[.*?\]", "", line).strip()
             conv = k.convert(text)
             new_text = "".join([item["hepburn"] for item in conv])
             new_lines.append(f"{time_tag.group(0) if time_tag else ''}{new_text}\n")
@@ -108,9 +112,10 @@ def _transliterate_chinese(lines: List[str]) -> List[str]:
 
     new_lines = []
     for line in lines:
-        if line.strip() and not line.strip().startswith("["):
+        # Fix Fase 3: proses baris yang punya teks non-timestamp
+        text = re.sub(r"\[.*?\]", "", line).strip()
+        if text:
             time_tag = re.match(r"\[.*?\]", line)
-            text = re.sub(r"\[.*?\]", "", line).strip()
             py_list = pinyin(text, style=Style.NORMAL)
             # Fix B3 (Fase 1): gunakan spasi sebagai pemisah suku kata
             new_text = " ".join([item[0] for item in py_list])
@@ -126,9 +131,10 @@ def _transliterate_korean(lines: List[str]) -> List[str]:
 
     new_lines = []
     for line in lines:
-        if line.strip() and not line.strip().startswith("["):
+        # Fix Fase 3: proses baris yang punya teks non-timestamp
+        text = re.sub(r"\[.*?\]", "", line).strip()
+        if text:
             time_tag = re.match(r"\[.*?\]", line)
-            text = re.sub(r"\[.*?\]", "", line).strip()
             try:
                 new_text = Romanizer(text).romanize()
                 new_lines.append(f"{time_tag.group(0) if time_tag else ''}{new_text}\n")
@@ -146,9 +152,10 @@ def _transliterate_universal(lines: List[str]) -> List[str]:
 
     new_lines = []
     for line in lines:
-        if line.strip() and not line.strip().startswith("["):
+        # Fix Fase 3: proses baris yang punya teks non-timestamp
+        text = re.sub(r"\[.*?\]", "", line).strip()
+        if text:
             time_tag = re.match(r"\[.*?\]", line)
-            text = re.sub(r"\[.*?\]", "", line).strip()
             new_text = anyascii(text)
             new_lines.append(f"{time_tag.group(0) if time_tag else ''}{new_text}\n")
         else:
