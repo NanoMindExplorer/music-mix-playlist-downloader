@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "music-mix-playlist-downloader"
-version = "3.2.0"
+version = "3.3.0"
 description = "CLI Next-Gen untuk download YouTube Mix, Playlist Spotify, SoundCloud dengan AI Lyrics Engine"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -56,6 +56,10 @@ dependencies = [
     "deep-translator>=1.11.4",
     "rapidfuzz>=3.0.0",
     "requests>=2.31.0",
+    # Fase 2.3: Spotify official API (Client Credentials flow, no user auth)
+    # Optional secara teknis (legacy scraping masih jalan), tapi very recommended
+    # untuk ISRC matching (akurasi 99%+ vs fuzzy title matching)
+    "spotipy>=2.23.0",
 ]
 
 [project.optional-dependencies]
@@ -67,10 +71,7 @@ dev = [
     "ruff>=0.1.0",
     "types-requests>=2.31.0",
 ]
-# Optional: Spotify parser modernization (Fase 2.3)
-spotify = [
-    "spotipy>=2.23.0",
-]
+# Fase 2.3: spotipy sekarang di dependencies utama (di atas), bukan optional.
 # Optional: LRCLIB provider (sudah pakai requests, tapi explicit untuk clarity)
 lrclib = [
     "requests>=2.31.0",
