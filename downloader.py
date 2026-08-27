@@ -635,7 +635,8 @@ def run_cli():
             "📥 1. Mode Utama (Download Lagu/Playlist dari YouTube)": 1,
             "🛠️ 2. Mode Retrofit (Otomatis Cari & Suntik Lirik/Cover ke File Lama)": 2,
             "📁 3. Mode Pengatur Otomatis (Rapikan File Lirik/MP3 Unduhan Manual)": 3,
-            "🎵 4. Mode Spotify (Download Lagu/Playlist dari Spotify)": 4
+            "🎵 4. Mode Spotify (Download Lagu/Playlist dari Spotify)": 4,
+            "☁️  5. Mode SoundCloud (Download Lagu/Playlist dari SoundCloud)": 5
         }
         selected_mode = questionary.select("Pilih Mode Operasi Aplikasi:", choices=list(mode_choices.keys()), style=custom_theme, use_indicator=True).ask()
         mode = mode_choices[selected_mode]
@@ -653,8 +654,9 @@ def run_cli():
                 break
             continue
 
-        # MODE DOWNLOAD UTAMA & SPOTIFY
+        # MODE DOWNLOAD UTAMA & SPOTIFY & SOUNDCLOUD
         is_spotify_mode = (mode == 4)
+        is_soundcloud_mode = (mode == 5)
         spotify_targets = []
         
         if is_spotify_mode:
@@ -686,7 +688,8 @@ def run_cli():
             display_target = f"Spotify Playlist/Track ({len(spotify_targets)} lagu)"
             
         else:
-            url_or_search = questionary.text("Masukkan URL YouTube ATAU Ketik Judul Lagu:", style=custom_theme).ask()
+            prompt_text = "☁️ Masukkan URL SoundCloud ATAU Ketik Judul Lagu:" if is_soundcloud_mode else "Masukkan URL YouTube ATAU Ketik Judul Lagu:"
+            url_or_search = questionary.text(prompt_text, style=custom_theme).ask()
             if not url_or_search:
                 console.print("[red]⚠️ Input tidak boleh kosong![/red]")
                 import time; time.sleep(1); continue
@@ -705,8 +708,9 @@ def run_cli():
             
             if is_search:
                 search_limit = max_songs if max_songs else 1
-                final_target = f"ytsearch{search_limit}:{url_or_search}"
-                display_target = f"Pencarian: '{url_or_search}' (Top {search_limit})"
+                search_prefix = "scsearch" if is_soundcloud_mode else "ytsearch"
+                final_target = f"{search_prefix}{search_limit}:{url_or_search}"
+                display_target = f"Pencarian {'SoundCloud' if is_soundcloud_mode else 'YouTube'}: '{url_or_search}' (Top {search_limit})"
             else:
                 final_target = url_or_search
                 display_target = url_or_search
@@ -780,7 +784,13 @@ def run_cli():
         if not questionary.confirm("▶️ Mulai eksekusi unduhan sekarang?", default=True, style=custom_theme).ask(): continue
 
         os.makedirs(output_dir, exist_ok=True)
-        outtmpl_path = f'{output_dir}/Spotify_Downloads/%(title)s.%(ext)s' if is_spotify_mode else f'{output_dir}/%(playlist_title)s/%(title)s.%(ext)s'
+        if is_spotify_mode:
+            outtmpl_path = f'{output_dir}/Spotify_Downloads/%(title)s.%(ext)s'
+        elif is_soundcloud_mode:
+            outtmpl_path = f'{output_dir}/SoundCloud_Downloads/%(playlist_title)s/%(title)s.%(ext)s'
+        else:
+            outtmpl_path = f'{output_dir}/%(playlist_title)s/%(title)s.%(ext)s'
+            
         ydl_opts = {
             'format': 'bestaudio/best',
             'outtmpl': outtmpl_path,
