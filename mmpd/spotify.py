@@ -63,8 +63,12 @@ def parse_spotify_url_safe(url: str) -> List[str]:
                 queries = [t.to_ytsearch_query() for t in tracks]
                 _log.info("Spotify parsed: %d tracks dari %s", len(queries), url[:80])
                 return queries
-            _log.warning("Spotify: spotipy return empty (URL invalid atau playlist kosong)")
-            return []
+            else:
+                if client.last_error:
+                    _log.error("Spotify gagal: %s", client.last_error)
+                else:
+                    _log.warning("Spotify: spotipy return empty (URL invalid atau playlist kosong)")
+                return []
         else:
             _log.error("Spotify: spotipy tidak available. Set SPOTIPY_CLIENT_ID dan SPOTIPY_CLIENT_SECRET.")
             return []
@@ -108,8 +112,12 @@ def parse_spotify_url_v2(url: str):
                     sum(1 for t in tracks if t.isrc),
                 )
                 return tracks
-            _log.warning("Spotify v2: spotipy return empty")
-            return []
+            else:
+                if client.last_error:
+                    _log.error("Spotify v2 gagal: %s", client.last_error)
+                else:
+                    _log.warning("Spotify v2: spotipy return empty")
+                return []
         else:
             _log.error("Spotify v2: spotipy tidak available. Set SPOTIPY_CLIENT_ID dan SPOTIPY_CLIENT_SECRET.")
             return []

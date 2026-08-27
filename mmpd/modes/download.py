@@ -515,14 +515,46 @@ def _gather_spotify_tracks_v2():
 
     tracks = parse_spotify_url_v2(url)
     if not tracks:
-        console.print("[red]⚠️ Gagal mengambil data Spotify atau playlist kosong![/red]")
-        time.sleep(1)
+        try:
+            from mmpd.spotify_client import get_spotify_client
+            client = get_spotify_client()
+            if client.last_error:
+                console.print(f"\n[bold red]❌ Gagal mengambil data Spotify![/bold red]")
+                console.print(f"[yellow]   {client.last_error}[/yellow]")
+                console.print("\n[dim]Solusi:[/dim]")
+                if "403" in client.last_error and "Premium" in client.last_error:
+                    console.print("[dim]   1. Upgrade Spotify Premium untuk app owner (dapat ISRC)[/dim]")
+                    console.print("[dim]   2. Atau gunakan embed scraping (otomatis, tanpa ISRC)[/dim]")
+                elif "401" in client.last_error:
+                    console.print("[dim]   Cek SPOTIPY_CLIENT_ID dan SPOTIPY_CLIENT_SECRET di ~/.bashrc[/dim]")
+                elif "404" in client.last_error:
+                    console.print("[dim]   Pastikan URL benar dan playlist tidak private[/dim]")
+                console.print("[dim]   3. Atau coba download via YouTube: ketik judul lagu di Mode 1[/dim]")
+                console.print()
+            else:
+                console.print("[red]⚠️ Gagal mengambil data Spotify atau playlist kosong![/red]")
+                console.print("[dim]   Coba cek URL atau gunakan Mode 1 (YouTube search)[/dim]")
+        except Exception:
+            console.print("[red]⚠️ Gagal mengambil data Spotify![/red]")
+        time.sleep(2)
         return []
 
     isrc_count = sum(1 for t in tracks if t.isrc)
+
+    try:
+        from mmpd.spotify_client import get_spotify_client
+        client = get_spotify_client()
+        if client.last_error and "fallback" in client.last_error.lower():
+            console.print(f"\n[yellow]⚠️ {client.last_error.split(chr(10))[0]}[/yellow]")
+            console.print()
+    except Exception:
+        pass
+
     console.print(f"[bold green]✅ Ditemukan {len(tracks)} lagu dari Spotify![/bold green]")
     if isrc_count > 0:
         console.print(f"[dim cyan]   📊 {isrc_count}/{len(tracks)} lagu punya ISRC (siap untuk matching akurat)[/dim cyan]")
+    elif tracks:
+        console.print(f"[dim yellow]   ⚠️ Tidak ada ISRC (embed scraping fallback) — matching pakai fuzzy title[/dim yellow]")
     return tracks
 
 
