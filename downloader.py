@@ -524,12 +524,47 @@ def run_retrofit():
                     temp_audio = os.path.join(dir_path, f"temp_{filename}")
                     progress.update(main_task, description=f"[magenta]Menyuntikkan Cover: [bold white]{title[:20]}...")
                     
+                    # Fix S1 (command injection): kode lama memakai os.system(cmd)
+                    # dengan string interpolation dari path filesystem user. Jika
+                    # ada file bernama \`song\"; rm -rf ~; echo \".mp3\`, shell akan
+                    # mengeksekusi perintah berbahaya. Sekarang kita pakai
+                    # subprocess.run() dengan list argumen — TIDAK ada shell
+                    # interpolation, argumen dilewatkan langsung ke execvp().
+                    import subprocess
                     if ext == '.mp3':
-                        cmd = f'ffmpeg -y -v quiet -i "{audio_path}" -i "{cover_path}" -map 0:0 -map 1:0 -c copy -id3v2_version 3 -metadata:s:v title="Album cover" -metadata:s:v comment="Cover (front)" "{temp_audio}"'
+                        ffmpeg_cmd = [
+                            'ffmpeg', '-y', '-v', 'quiet',
+                            '-i', audio_path,
+                            '-i', cover_path,
+                            '-map', '0:0', '-map', '1:0',
+                            '-c', 'copy',
+                            '-id3v2_version', '3',
+                            '-metadata:s:v', 'title=Album cover',
+                            '-metadata:s:v', 'comment=Cover (front)',
+                            temp_audio
+                        ]
                     elif ext == '.flac':
-                        cmd = f'ffmpeg -y -v quiet -i "{audio_path}" -i "{cover_path}" -map 0:0 -map 1:0 -c copy -disposition:v attached_pic "{temp_audio}"'
+                        ffmpeg_cmd = [
+                            'ffmpeg', '-y', '-v', 'quiet',
+                            '-i', audio_path,
+                            '-i', cover_path,
+                            '-map', '0:0', '-map', '1:0',
+                            '-c', 'copy',
+                            '-disposition:v', 'attached_pic',
+                            temp_audio
+                        ]
+                    else:
+                        ffmpeg_cmd = None
                     
-                    os.system(cmd)
+                    if ffmpeg_cmd:
+                        try:
+                            subprocess.run(ffmpeg_cmd, check=True, capture_output=True, text=True)
+                        except subprocess.CalledProcessError as e:
+                            console.print(f"[dim red]❌ FFmpeg gagal menyuntik cover untuk {filename}: {e.stderr.strip() if e.stderr else str(e)}[/dim red]")
+                        except FileNotFoundError:
+                            console.print(f"[dim red]❌ FFmpeg tidak ditemukan di PATH. Pastikan sudah terinstal.[/dim red]")
+                        except Exception as e:
+                            console.print(f"[dim red]❌ Error tak terduga saat injeksi cover {filename}: {e}[/dim red]")
                     
                     # Ganti file asli dengan yang sudah disuntik jika berhasil
                     if os.path.exists(temp_audio) and os.path.getsize(temp_audio) > 0:
