@@ -1,6 +1,6 @@
-# 🎵 YT Mix & Playlist Downloader Pro (AI Edition)
+# 🎵 Music Mix & Playlist Downloader Pro (AI Edition)
 
-Aplikasi CLI interaktif *Next-Gen* untuk mendownload YouTube Mix dan Playlist secara otomatis, lalu mengonversinya menjadi audio berkualitas tinggi (MP3/FLAC/WAV). Dilengkapi dengan **Kecerdasan Buatan (AI)** untuk menerjemahkan lirik, mengubah huruf asing ke alfabet Latin (Transliterasi), dan memanajemen perpustakaan musik Anda bak seorang profesional!
+Aplikasi CLI interaktif *Next-Gen* untuk mendownload YouTube Mix, Playlist Spotify, SoundCloud, dan lainnya secara otomatis, lalu mengonversinya menjadi audio berkualitas tinggi (MP3/FLAC/WAV). Dilengkapi dengan **Kecerdasan Buatan (AI)** untuk menerjemahkan lirik, mengubah huruf asing ke alfabet Latin (Transliterasi), dan memanajemen perpustakaan musik Anda bak seorang profesional!
 
 ---
 
@@ -12,18 +12,18 @@ Perintah sakti ini didesain untuk **otomatis menginstal versi terbaru** beserta 
 ### 📱 Android (Termux)
 *(Catatan: Anda akan dimintai izin akses penyimpanan, tekan Allow/Izinkan)*
 ```bash
-termux-setup-storage; pkg update -y && pkg install -y python ffmpeg git && rm -rf yt-mix-playlist-to-audio-downloader && git clone https://github.com/NanoMindExplorer/yt-mix-playlist-to-audio-downloader.git && cd yt-mix-playlist-to-audio-downloader && pip install -U -r requirements.txt --break-system-packages
+termux-setup-storage; pkg update -y && pkg install -y python ffmpeg git && rm -rf music-mix-playlist-downloader && git clone https://github.com/NanoMindExplorer/music-mix-playlist-downloader.git && cd music-mix-playlist-downloader && pip install -U -r requirements.txt --break-system-packages
 ```
 
 ### 🐧 Linux (Ubuntu/Debian)
 ```bash
-sudo apt update && sudo apt install -y python3 python3-pip ffmpeg git && rm -rf yt-mix-playlist-to-audio-downloader && git clone https://github.com/NanoMindExplorer/yt-mix-playlist-to-audio-downloader.git && cd yt-mix-playlist-to-audio-downloader && pip3 install -U -r requirements.txt --break-system-packages
+sudo apt update && sudo apt install -y python3 python3-pip ffmpeg git && rm -rf music-mix-playlist-downloader && git clone https://github.com/NanoMindExplorer/music-mix-playlist-downloader.git && cd music-mix-playlist-downloader && pip3 install -U -r requirements.txt --break-system-packages
 ```
 
 ### 🪟 Windows (PowerShell)
 *(Catatan: Pastikan Anda telah menginstal Python dan Git terlebih dahulu).*
 ```powershell
-winget install ffmpeg; if (Test-Path yt-mix-playlist-to-audio-downloader) { Remove-Item -Recurse -Force yt-mix-playlist-to-audio-downloader }; git clone https://github.com/NanoMindExplorer/yt-mix-playlist-to-audio-downloader.git; cd yt-mix-playlist-to-audio-downloader; pip install -U -r requirements.txt
+winget install ffmpeg; if (Test-Path music-mix-playlist-downloader) { Remove-Item -Recurse -Force music-mix-playlist-downloader }; git clone https://github.com/NanoMindExplorer/music-mix-playlist-downloader.git; cd music-mix-playlist-downloader; pip install -U -r requirements.txt
 ```
 
 ---
@@ -63,9 +63,11 @@ python downloader.py
 
 Anda akan disajikan UI *Cyberpunk* interaktif (gunakan panah *keyboard* ⬆️/⬇️ untuk memilih):
 
-- **📥 1. Mode Utama (Unduhan Baru):** Tempelkan link YouTube (Video tunggal/Playlist/Mix) atau cukup **ketik judul lagu** langsung (contoh: "Avenged Sevenfold Dear God"). Pilih resolusi/format, setel sistem AI Lirik, dan saksikan mesin bekerja.
-- **🛠️ 2. Mode Retrofit (Otomatis Perbaiki Lagu Lama):** Punya lagu-lagu lama yang tidak bergambar (Cover Art) atau tidak memiliki lirik? Biarkan mesin memindai folder Anda, melacak asal-usulnya di YouTube, dan **menyuntikkan Lirik & Cover ke dalam file MP3/FLAC lama Anda secara otomatis!** (Bisa pilih lirik saja, atau cover saja).
+- **📥 1. Mode Utama (Unduhan Baru):** Tempelkan link YouTube (Video tunggal/Playlist/Mix) atau cukup **ketik judul lagu** langsung.
+- **🛠️ 2. Mode Retrofit (Otomatis Perbaiki Lagu Lama):** Punya lagu-lagu lama yang tidak bergambar (Cover Art) atau tidak memiliki lirik? Biarkan mesin memindai folder Anda, melacak asal-usulnya di YouTube, dan **menyuntikkan Lirik & Cover ke dalam file MP3/FLAC lama Anda secara otomatis!**
 - **📁 3. Mode Pengatur Otomatis:** Mode cerdas untuk menjodohkan file lirik manual yang berantakan dengan MP3 Anda.
+- **🎵 4. Mode Spotify:** Unduh lagu, album, atau *playlist* langsung dari tautan Spotify dengan dukungan parsing metadata tingkat lanjut yang meneruskan unduhan tanpa hambatan.
+- **☁️  5. Mode SoundCloud:** Dukungan langsung untuk mengunduh trek tunggal maupun *playlist* dari SoundCloud.
 
 ---
 
