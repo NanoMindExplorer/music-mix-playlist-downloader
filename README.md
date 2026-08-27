@@ -2,6 +2,21 @@
 
 Aplikasi CLI interaktif *Next-Gen* untuk mendownload YouTube Mix, Playlist Spotify, SoundCloud, dan lainnya secara otomatis, lalu mengonversinya menjadi audio berkualitas tinggi (MP3/FLAC/WAV). Dilengkapi dengan **Kecerdasan Buatan (AI)** untuk menerjemahkan lirik, mengubah huruf asing ke alfabet Latin (Transliterasi), dan memanajemen perpustakaan musik Anda bak seorang profesional!
 
+## 🆕 Apa Baru di v3.1 (Fase 2.1)
+
+- **Package `mmpd`**: struktur modular dengan `pyproject.toml` resmi
+- **Multi-entry point**:
+  - `python downloader.py` (backward compatible, masih support)
+  - `python -m mmpd` (baru — module entry)
+  - `mmpd` (baru — entry point setelah `pip install .`)
+- **`mmpd doctor`**: command diagnostik untuk cek dependency, network, storage, dan konfigurasi
+- **Structured logging** dengan file rotation di `~/.local/share/mmpd/logs/mmpd.log` (atau `$PREFIX/var/log/mmpd/mmpd.log` di Termux)
+- **Lyrics provider abstraction** dengan fallback chain:
+  1. **LRCLIB** (baru — database lirik sinkron terbesar, gratis, no-auth)
+  2. **syncedlyrics** (existing — Musixmatch/NetEase/Megalobiz)
+- **Type hints** bertahap untuk fungsi publik + `mypy` config
+- **Centralized config** (`mmpd/config.py`) — path detection Termux/Linux/Windows terpusat
+
 ---
 
 ## ⚡ Cara Instalasi & Pembaruan (One-Line)
@@ -13,6 +28,13 @@ Perintah sakti ini didesain untuk **otomatis menginstal versi terbaru** beserta 
 *(Catatan: Anda akan dimintai izin akses penyimpanan, tekan Allow/Izinkan)*
 ```bash
 termux-setup-storage; pkg update -y && pkg install -y python ffmpeg git && rm -rf music-mix-playlist-downloader && git clone https://github.com/NanoMindExplorer/music-mix-playlist-downloader.git && cd music-mix-playlist-downloader && pip install -U -r requirements.txt --break-system-packages
+```
+
+**Cara pakai baru (Fase 2.1):** setelah clone, Anda bisa juga install sebagai package:
+```bash
+pip install -e . --break-system-packages   # enable command `mmpd`
+mmpd doctor                                  # cek semua dependency & network
+mmpd                                         # jalankan aplikasi (sama dengan `python downloader.py`)
 ```
 
 ### 🐧 Linux (Ubuntu/Debian)
