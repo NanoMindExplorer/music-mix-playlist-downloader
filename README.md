@@ -2,6 +2,40 @@
 
 Aplikasi CLI interaktif *Next-Gen* untuk mendownload YouTube Mix, Playlist Spotify, SoundCloud, dan lainnya secara otomatis, lalu mengonversinya menjadi audio berkualitas tinggi (MP3/FLAC/WAV). Dilengkapi dengan **Kecerdasan Buatan (AI)** untuk menerjemahkan lirik, mengubah huruf asing ke alfabet Latin (Transliterasi), dan memanajemen perpustakaan musik Anda bak seorang profesional!
 
+## 🆕 Apa Baru di v4.0.0 (Fase 5 — Final Polish, Production Ready)
+
+🎉 **Major Release** — Project sekarang production-ready!
+
+- **376 unit tests**, coverage **79%** (up from 333 tests / 77% di v3.5)
+- **Hapus `spotify_parser.py`** — legacy scraping dihapus, HANYA pakai spotipy (official API)
+- **Pre-commit hooks** — ruff + black + mypy auto-run sebelum commit
+- **`CONTRIBUTING.md`** — guide lengkap untuk kontributor
+- **`docs/CHANGELOG.md`** — changelog lengkap v3.0 → v4.0
+- **Coverage threshold** 75% → 78% (actual: 79%)
+- **`mmpd/logger.py`** coverage: 74% → **91%** ⬆️
+- **`mmpd/spotify.py`** coverage: 65% → **89%** ⬆️
+
+### Migration dari v3.x ke v4.0
+
+Jika Anda pakai `spotify_parser.py` di code sendiri:
+```python
+# OLD (v3.x, deprecated):
+from spotify_parser import parse_spotify_url
+results = parse_spotify_url(url)  # List[str]
+
+# NEW (v4.0):
+from mmpd.spotify import parse_spotify_url_v2
+tracks = parse_spotify_url_v2(url)  # List[SpotifyTrack] dengan ISRC
+```
+
+### Setup Pre-commit Hooks (optional, recommended untuk developer)
+
+```bash
+pip install pre-commit
+pre-commit install
+# Sekarang setiap `git commit` akan auto-run ruff + black + mypy
+```
+
 ## 🆕 Apa Baru di v3.5 (Fase 4 — Hardening & Polish)
 
 - **Translation cache** (SQLite) — avoid re-translate same lyrics via Google API

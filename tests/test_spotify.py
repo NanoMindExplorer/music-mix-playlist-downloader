@@ -1,11 +1,12 @@
 """
-Unit tests untuk mmpd.spotify — parse_spotify_url_safe + parse_spotify_url_v2 + fallback chain.
+Unit tests untuk mmpd.spotify — parse_spotify_url_safe + parse_spotify_url_v2 + helpers.
 
+Fase 5: legacy scraping dihapus. Tests sekarang fokus ke spotipy path.
 Strategy:
-    - Mock spotify_client.get_spotify_client untuk test fallback ke legacy
-    - Mock spotify_parser.parse_spotify_url untuk test legacy fallback
+    - Mock spotify_client.get_spotify_client untuk test spotipy path
     - Test is_spotify_url validator
     - Test build_ytsearch_query
+    - Test spotipy_available (env vars check)
 """
 
 from __future__ import annotations
@@ -63,7 +64,6 @@ class TestIsSpotifyUrl:
     def test_spotify_without_open_returns_false(self):
         """Test URL dengan spotify.com tapi tanpa 'open' return False."""
         from mmpd.spotify import is_spotify_url
-        # "spotify.com" tanpa "open" → False
         assert is_spotify_url("https://spotify.com/track/abc") is False
 
 
@@ -88,7 +88,6 @@ class TestBuildYtsearchQuery:
         """Test query dengan bracket dibersihkan."""
         from mmpd.spotify import build_ytsearch_query
         result = build_ytsearch_query("[Artist] Song (Official)", limit=1)
-        # Bracket dan "Official" harus hilang
         assert "ytsearch1:" in result
         assert "[" not in result
         assert "(" not in result
@@ -97,7 +96,6 @@ class TestBuildYtsearchQuery:
         """Test empty query setelah clean pakai original."""
         from mmpd.spotify import build_ytsearch_query
         result = build_ytsearch_query("[Official]", limit=1)
-        # Setelah clean, empty → pakai original stripped
         assert "ytsearch1:" in result
 
 
@@ -121,7 +119,6 @@ class TestSpotipyAvailable:
         monkeypatch.setenv("SPOTIPY_CLIENT_ID", "test_id_1234567890")
         monkeypatch.setenv("SPOTIPY_CLIENT_SECRET", "test_secret_1234567890")
 
-        # Mock spotipy module
         mock_spotipy = MagicMock()
         with patch.dict("sys.modules", {"spotipy": mock_spotipy}):
             from mmpd import spotify_client as sc
@@ -131,7 +128,7 @@ class TestSpotipyAvailable:
 
 
 # ============================================================================
-# parse_spotify_url_safe (backward compat, return List[str])
+# parse_spotify_url_safe (return List[str])
 # ============================================================================
 
 class TestParseSpotifyUrlSafe:
@@ -141,30 +138,54 @@ class TestParseSpotifyUrlSafe:
         result = parse_spotify_url_safe("https://youtube.com/watch?v=abc")
         assert result == []
 
-    def test_fallback_to_legacy_scraping(self, monkeypatch):
-        """Test fallback ke legacy scraping kalau spotipy tidak available."""
+    def test_returns_empty_without_credentials(self, monkeypatch):
+        """Test return empty kalau spotipy tidak available (no credentials)."""
         monkeypatch.delenv("SPOTIPY_CLIENT_ID", raising=False)
         monkeypatch.delenv("SPOTIPY_CLIENT_SECRET", raising=False)
 
-        # Mock legacy parser
-        mock_legacy_result = ["Adele Hello", "Ed Sheeran Shape of You"]
-        with patch("spotify_parser.parse_spotify_url", return_value=mock_legacy_result):
+        from mmpd import spotify_client as sc
+        sc.reset_spotify_client()
+        from mmpd.spotify import parse_spotify_url_safe
+        result = parse_spotify_url_safe("https://open.spotify.com/playlist/abc")
+        assert result == []
+
+    def test_returns_queries_with_spotipy(self, monkeypatch):
+        """Test return List[str] kalau spotipy available + berhasil parse."""
+        monkeypatch.setenv("SPOTIPY_CLIENT_ID", "test_id_1234567890")
+        monkeypatch.setenv("SPOTIPY_CLIENT_SECRET", "test_secret_1234567890")
+
+        mock_spotipy = MagicMock()
+        with patch.dict("sys.modules", {"spotipy": mock_spotipy}):
             from mmpd import spotify_client as sc
             sc.reset_spotify_client()
-            from mmpd.spotify import parse_spotify_url_safe
-            result = parse_spotify_url_safe("https://open.spotify.com/playlist/abc")
-        assert result == mock_legacy_result
 
-    def test_legacy_returns_empty_on_failure(self, monkeypatch):
-        """Test legacy scraping return empty kalau gagal."""
-        monkeypatch.delenv("SPOTIPY_CLIENT_ID", raising=False)
-        monkeypatch.delenv("SPOTIPY_CLIENT_SECRET", raising=False)
+            # Mock SpotifyClient.parse_url return tracks
+            mock_track1 = MagicMock()
+            mock_track1.to_ytsearch_query.return_value = "Adele Hello"
+            mock_track2 = MagicMock()
+            mock_track2.to_ytsearch_query.return_value = "Ed Sheeran Shape of You"
 
-        with patch("spotify_parser.parse_spotify_url", return_value=[]):
+            with patch("mmpd.spotify_client.SpotifyClient.parse_url", return_value=[mock_track1, mock_track2]):
+                from mmpd.spotify import parse_spotify_url_safe
+                result = parse_spotify_url_safe("https://open.spotify.com/playlist/abc")
+
+        assert len(result) == 2
+        assert "Adele Hello" in result
+        assert "Ed Sheeran Shape of You" in result
+
+    def test_returns_empty_on_spotipy_error(self, monkeypatch):
+        """Test return empty kalau spotipy raise exception."""
+        monkeypatch.setenv("SPOTIPY_CLIENT_ID", "test_id_1234567890")
+        monkeypatch.setenv("SPOTIPY_CLIENT_SECRET", "test_secret_1234567890")
+
+        mock_spotipy = MagicMock()
+        with patch.dict("sys.modules", {"spotipy": mock_spotipy}):
             from mmpd import spotify_client as sc
             sc.reset_spotify_client()
-            from mmpd.spotify import parse_spotify_url_safe
-            result = parse_spotify_url_safe("https://open.spotify.com/playlist/abc")
+
+            with patch("mmpd.spotify_client.SpotifyClient.parse_url", side_effect=Exception("API error")):
+                from mmpd.spotify import parse_spotify_url_safe
+                result = parse_spotify_url_safe("https://open.spotify.com/playlist/abc")
         assert result == []
 
 
@@ -179,59 +200,53 @@ class TestParseSpotifyUrlV2:
         result = parse_spotify_url_v2("https://youtube.com/watch?v=abc")
         assert result == []
 
-    def test_fallback_to_legacy_returns_spotify_tracks(self, monkeypatch):
-        """Test fallback ke legacy, wrap ke SpotifyTrack."""
+    def test_returns_empty_without_credentials(self, monkeypatch):
+        """Test return empty kalau spotipy tidak available."""
         monkeypatch.delenv("SPOTIPY_CLIENT_ID", raising=False)
         monkeypatch.delenv("SPOTIPY_CLIENT_SECRET", raising=False)
 
-        mock_legacy_result = ["Adele Hello", "Ed Sheeran Shape of You"]
-        with patch("spotify_parser.parse_spotify_url", return_value=mock_legacy_result):
-            from mmpd import spotify_client as sc
-            sc.reset_spotify_client()
-            from mmpd.spotify import parse_spotify_url_v2
-            result = parse_spotify_url_v2("https://open.spotify.com/playlist/abc")
-
-        # Should return list of SpotifyTrack (without ISRC since legacy)
-        assert len(result) == 2
-        # SpotifyTrack should have title and artist attributes
-        for track in result:
-            assert hasattr(track, "title")
-            assert hasattr(track, "artist")
-            assert track.isrc is None  # Legacy tidak punya ISRC
-
-    def test_legacy_empty_returns_empty(self, monkeypatch):
-        """Test legacy scraping empty return empty list."""
-        monkeypatch.delenv("SPOTIPY_CLIENT_ID", raising=False)
-        monkeypatch.delenv("SPOTIPY_CLIENT_SECRET", raising=False)
-
-        with patch("spotify_parser.parse_spotify_url", return_value=[]):
-            from mmpd import spotify_client as sc
-            sc.reset_spotify_client()
-            from mmpd.spotify import parse_spotify_url_v2
-            result = parse_spotify_url_v2("https://open.spotify.com/playlist/abc")
+        from mmpd import spotify_client as sc
+        sc.reset_spotify_client()
+        from mmpd.spotify import parse_spotify_url_v2
+        result = parse_spotify_url_v2("https://open.spotify.com/playlist/abc")
         assert result == []
 
+    def test_returns_tracks_with_spotipy(self, monkeypatch):
+        """Test return List[SpotifyTrack] kalau spotipy berhasil parse."""
+        monkeypatch.setenv("SPOTIPY_CLIENT_ID", "test_id_1234567890")
+        monkeypatch.setenv("SPOTIPY_CLIENT_SECRET", "test_secret_1234567890")
 
-# ============================================================================
-# SpotifyTrack conversion (via v2 fallback)
-# ============================================================================
+        from mmpd.spotify_client import SpotifyTrack
+        mock_tracks = [
+            SpotifyTrack(title="Hello", artist="Adele", isrc="GBBKS1500214"),
+            SpotifyTrack(title="Shape of You", artist="Ed Sheeran", isrc="GBAHS1500078"),
+        ]
 
-class TestSpotifyTrackConversion:
-    def test_legacy_query_split_correctly(self, monkeypatch):
-        """Test legacy "Artist Title" string di-split jadi artist + title."""
-        monkeypatch.delenv("SPOTIPY_CLIENT_ID", raising=False)
-        monkeypatch.delenv("SPOTIPY_CLIENT_SECRET", raising=False)
-
-        # Legacy return "Adele Hello" → artist="Adele", title="Hello"
-        mock_legacy_result = ["Adele Hello"]
-        with patch("spotify_parser.parse_spotify_url", return_value=mock_legacy_result):
+        mock_spotipy = MagicMock()
+        with patch.dict("sys.modules", {"spotipy": mock_spotipy}):
             from mmpd import spotify_client as sc
             sc.reset_spotify_client()
-            from mmpd.spotify import parse_spotify_url_v2
-            result = parse_spotify_url_v2("https://open.spotify.com/track/abc")
 
-        assert len(result) == 1
-        track = result[0]
-        # Heuristik: split di spasi pertama → artist="Adele", title="Hello"
-        assert track.artist == "Adele"
-        assert track.title == "Hello"
+            with patch("mmpd.spotify_client.SpotifyClient.parse_url", return_value=mock_tracks):
+                from mmpd.spotify import parse_spotify_url_v2
+                result = parse_spotify_url_v2("https://open.spotify.com/playlist/abc")
+
+        assert len(result) == 2
+        assert result[0].title == "Hello"
+        assert result[0].isrc == "GBBKS1500214"
+        assert result[1].title == "Shape of You"
+
+    def test_returns_empty_on_error(self, monkeypatch):
+        """Test return empty kalau spotipy raise exception."""
+        monkeypatch.setenv("SPOTIPY_CLIENT_ID", "test_id_1234567890")
+        monkeypatch.setenv("SPOTIPY_CLIENT_SECRET", "test_secret_1234567890")
+
+        mock_spotipy = MagicMock()
+        with patch.dict("sys.modules", {"spotipy": mock_spotipy}):
+            from mmpd import spotify_client as sc
+            sc.reset_spotify_client()
+
+            with patch("mmpd.spotify_client.SpotifyClient.parse_url", side_effect=Exception("fail")):
+                from mmpd.spotify import parse_spotify_url_v2
+                result = parse_spotify_url_v2("https://open.spotify.com/playlist/abc")
+        assert result == []
