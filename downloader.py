@@ -9,6 +9,10 @@ from rich.console import Console
 from rich import box
 from rich.panel import Panel
 from urllib.error import HTTPError
+import urllib.request
+import re
+import json
+from spotify_parser import parse_spotify_url
 try:
     import syncedlyrics
     # Patch bawaan syncedlyrics yang membatasi timeout koneksi menjadi 2 detik (terlalu singkat untuk Termux/koneksi lambat)
@@ -630,7 +634,8 @@ def run_cli():
         mode_choices = {
             "📥 1. Mode Utama (Download Lagu/Playlist dari YouTube)": 1,
             "🛠️ 2. Mode Retrofit (Otomatis Cari & Suntik Lirik/Cover ke File Lama)": 2,
-            "📁 3. Mode Pengatur Otomatis (Rapikan File Lirik/MP3 Unduhan Manual)": 3
+            "📁 3. Mode Pengatur Otomatis (Rapikan File Lirik/MP3 Unduhan Manual)": 3,
+            "🎵 4. Mode Spotify (Download Lagu/Playlist dari Spotify)": 4
         }
         selected_mode = questionary.select("Pilih Mode Operasi Aplikasi:", choices=list(mode_choices.keys()), style=custom_theme, use_indicator=True).ask()
         mode = mode_choices[selected_mode]
@@ -648,31 +653,63 @@ def run_cli():
                 break
             continue
 
-        # MODE DOWNLOAD UTAMA
-        url_or_search = questionary.text("Masukkan URL YouTube ATAU Ketik Judul Lagu:", style=custom_theme).ask()
-        if not url_or_search:
-            console.print("[red]⚠️ Input tidak boleh kosong![/red]")
-            import time; time.sleep(1); continue
-            
-        url_or_search = url_or_search.strip()
-        is_search = not (url_or_search.startswith("http://") or url_or_search.startswith("https://") or url_or_search.startswith("www."))
-            
-        limit_choice = questionary.confirm(f"Batasi jumlah lagu yang diunduh {'dari hasil pencarian' if is_search else 'dari playlist'} ini?", default=False, style=custom_theme).ask()
-        max_songs = None
-        if limit_choice:
-            while True:
-                limit_input = questionary.text("Berapa maksimal lagu? (Angka):", style=custom_theme).ask()
-                if limit_input and limit_input.isdigit() and int(limit_input) > 0:
-                    max_songs = int(limit_input); break
-                else: console.print("[red]⚠️ Masukkan angka valid![/red]")
+        # MODE DOWNLOAD UTAMA & SPOTIFY
+        is_spotify_mode = (mode == 4)
+        spotify_targets = []
         
-        if is_search:
-            search_limit = max_songs if max_songs else 1
-            final_target = f"ytsearch{search_limit}:{url_or_search}"
-            display_target = f"Pencarian: '{url_or_search}' (Top {search_limit})"
+        if is_spotify_mode:
+            url_or_search = questionary.text("🎵 Masukkan URL Track/Playlist/Album Spotify:", style=custom_theme).ask()
+            if not url_or_search or "spotify.com" not in url_or_search:
+                console.print("[red]⚠️ URL Spotify tidak valid![/red]")
+                import time; time.sleep(1); continue
+            url_or_search = url_or_search.strip()
+            
+            console.print("[cyan]🔍 Membaca metadata dari Spotify...[/cyan]")
+            spotify_targets = parse_spotify_url(url_or_search)
+            if not spotify_targets:
+                console.print("[red]⚠️ Gagal mengambil data Spotify atau playlist kosong![/red]")
+                import time; time.sleep(1); continue
+                
+            console.print(f"[bold green]✅ Ditemukan {len(spotify_targets)} lagu dari Spotify![/bold green]")
+            max_songs = None
+            limit_choice = questionary.confirm(f"Batasi jumlah lagu yang diunduh (dari {len(spotify_targets)} lagu)?", default=False, style=custom_theme).ask()
+            if limit_choice:
+                while True:
+                    limit_input = questionary.text("Berapa maksimal lagu? (Angka):", style=custom_theme).ask()
+                    if limit_input and limit_input.isdigit() and int(limit_input) > 0:
+                        max_songs = int(limit_input)
+                        spotify_targets = spotify_targets[:max_songs]
+                        break
+                    else: console.print("[red]⚠️ Masukkan angka valid![/red]")
+            
+            final_target = None
+            display_target = f"Spotify Playlist/Track ({len(spotify_targets)} lagu)"
+            
         else:
-            final_target = url_or_search
-            display_target = url_or_search
+            url_or_search = questionary.text("Masukkan URL YouTube ATAU Ketik Judul Lagu:", style=custom_theme).ask()
+            if not url_or_search:
+                console.print("[red]⚠️ Input tidak boleh kosong![/red]")
+                import time; time.sleep(1); continue
+                
+            url_or_search = url_or_search.strip()
+            is_search = not (url_or_search.startswith("http://") or url_or_search.startswith("https://") or url_or_search.startswith("www."))
+                
+            limit_choice = questionary.confirm(f"Batasi jumlah lagu yang diunduh {'dari hasil pencarian' if is_search else 'dari playlist'} ini?", default=False, style=custom_theme).ask()
+            max_songs = None
+            if limit_choice:
+                while True:
+                    limit_input = questionary.text("Berapa maksimal lagu? (Angka):", style=custom_theme).ask()
+                    if limit_input and limit_input.isdigit() and int(limit_input) > 0:
+                        max_songs = int(limit_input); break
+                    else: console.print("[red]⚠️ Masukkan angka valid![/red]")
+            
+            if is_search:
+                search_limit = max_songs if max_songs else 1
+                final_target = f"ytsearch{search_limit}:{url_or_search}"
+                display_target = f"Pencarian: '{url_or_search}' (Top {search_limit})"
+            else:
+                final_target = url_or_search
+                display_target = url_or_search
         
         console.print()
         format_options = {
@@ -743,9 +780,10 @@ def run_cli():
         if not questionary.confirm("▶️ Mulai eksekusi unduhan sekarang?", default=True, style=custom_theme).ask(): continue
 
         os.makedirs(output_dir, exist_ok=True)
+        outtmpl_path = f'{output_dir}/Spotify_Downloads/%(title)s.%(ext)s' if is_spotify_mode else f'{output_dir}/%(playlist_title)s/%(title)s.%(ext)s'
         ydl_opts = {
             'format': 'bestaudio/best',
-            'outtmpl': f'{output_dir}/%(playlist_title)s/%(title)s.%(ext)s',
+            'outtmpl': outtmpl_path,
             'noplaylist': False,
             'ignoreerrors': True,
             'geo_bypass': True,
@@ -799,7 +837,12 @@ def run_cli():
             ydl_opts['progress_hooks'] = [download_hook]
             try:
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    ydl.download([final_target])
+                    if is_spotify_mode:
+                        for track in spotify_targets:
+                            try: ydl.download([f"ytsearch1:{track}"])
+                            except Exception: pass
+                    else:
+                        ydl.download([final_target])
                     
                 # Fetch Lirik via API (Bypass YouTube)
                 if download_lyrics:
