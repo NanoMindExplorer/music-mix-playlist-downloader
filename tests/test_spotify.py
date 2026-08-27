@@ -73,16 +73,19 @@ class TestIsSpotifyUrl:
 
 class TestBuildYtsearchQuery:
     def test_basic_query(self):
-        """Test basic ytsearch query."""
+        """Test basic ytsearch query dengan instrumental filter."""
         from mmpd.spotify import build_ytsearch_query
         result = build_ytsearch_query("Adele Hello", limit=1)
-        assert result == "ytsearch1:Adele Hello"
+        assert result.startswith("ytsearch1:Adele Hello")
+        assert "-instrumental" in result
+        assert "-karaoke" in result
 
     def test_query_with_limit_3(self):
         """Test query dengan limit 3."""
         from mmpd.spotify import build_ytsearch_query
         result = build_ytsearch_query("Test Song", limit=3)
-        assert result == "ytsearch3:Test Song"
+        assert result.startswith("ytsearch3:Test Song")
+        assert "-instrumental" in result
 
     def test_query_clean_brackets(self):
         """Test query dengan bracket dibersihkan."""
