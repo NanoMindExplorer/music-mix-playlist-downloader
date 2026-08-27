@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "music-mix-playlist-downloader"
-version = "3.1.0"
+version = "3.2.0"
 description = "CLI Next-Gen untuk download YouTube Mix, Playlist Spotify, SoundCloud dengan AI Lyrics Engine"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -87,12 +87,14 @@ Issues = "https://github.com/NanoMindExplorer/music-mix-playlist-downloader/issu
 Changelog = "https://github.com/NanoMindExplorer/music-mix-playlist-downloader/releases"
 
 [tool.setuptools]
-# Package discovery: include mmpd/ package + flat modules (downloader.py, spotify_parser.py)
+# Package discovery: include mmpd/ + mmpd/utils/ + mmpd/modes/ + flat modules
 py-modules = ["downloader", "spotify_parser"]
-packages = ["mmpd"]
+packages = ["mmpd", "mmpd.utils", "mmpd.modes"]
 
 [tool.setuptools.package-data]
 mmpd = ["py.typed"]
+"mmpd.utils" = ["py.typed"]
+"mmpd.modes" = ["py.typed"]
 
 [tool.mypy]
 python_version = "3.9"
