@@ -11,5 +11,6 @@ anyascii>=0.3.3
 deep-translator>=1.11.4
 # Fix B1: rapidfuzz dibutuhkan oleh run_organizer() di downloader.py:572 (fuzz.ratio)
 rapidfuzz>=3.0.0
-# Fix B2: requests dibutuhkan oleh fetch_synced_lyrics() di downloader.py:275 (iTunes API fallback)
+# Fix B2: requests dibutuhkan oleh fetch_synced_lyrics() (iTunes API fallback)
+# Fase 2.1: juga dipakai oleh mmpd.lyrics_providers.LrclibProvider
 requests>=2.31.0
