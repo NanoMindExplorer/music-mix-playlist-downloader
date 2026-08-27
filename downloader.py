@@ -255,7 +255,15 @@ def process_translation(lrc_path, translate_mode):
                 match = re.match(r'(\[.*?\])', line)
                 if match:
                     timestamp = match.group(1)
-                    output.append(f"{timestamp} ({t_text})")
+                    # Fix B4 (format non-standard): kode lama menulis terjemahan
+                    # sebagai \`timestamp (translation)\` dalam satu baris. Format
+                    # parenthetical TIDAK dikenali oleh Huawei Music, Poweramp,
+                    # BlackPlayer, AIMP, dan mayoritas player mobile.
+                    # Standar LRC bilingual yang kompatibel: dua baris dengan
+                    # timestamp identik (satu untuk lirik asli, satu untuk
+                    # terjemahan). Player yang mendukung bilingual (termasuk
+                    # Huawei Music karaoke) akan menampilkannya berdampingan.
+                    output.append(f"{timestamp}{t_text}")
                     
         with open(lrc_path, 'w', encoding='utf-8') as f:
             f.write("\n".join(output))
