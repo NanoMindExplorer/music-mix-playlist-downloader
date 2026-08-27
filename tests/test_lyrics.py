@@ -45,12 +45,19 @@ class TestSyncHuaweiLrc:
 
     def test_sync_copies_file_on_termux(self, tmp_path, mock_termux_env, monkeypatch):
         """Test sync copy file .lrc ke Musiclrc folder di Termux."""
-        # Setup: source lrc + mock musiclrc dir
+        from mmpd.config import reset_config
+
+        # Reset config dulu supaya singleton di-rebuild dengan env Termux yang baru
+        reset_config()
+
+        # Setup: source lrc + mock home directory ke tmp_path
         source_lrc = tmp_path / "song.lrc"
         source_lrc.write_text("lyrics content", encoding="utf-8")
 
-        # Mock home directory ke tmp_path
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        # Reset lagi setelah mock home supaya config pakai tmp_path
+        reset_config()
+
         # Mock get_musiclrc_dir return tmp_path / "musiclrc"
         musiclrc_dir = tmp_path / "storage" / "shared" / "Music" / "Musiclrc"
 
@@ -58,7 +65,7 @@ class TestSyncHuaweiLrc:
 
         # Verify file copied
         target = musiclrc_dir / "song.lrc"
-        assert target.exists()
+        assert target.exists(), f"Expected {target} to exist after sync"
         assert target.read_text(encoding="utf-8") == "lyrics content"
 
     def test_sync_handles_oserror(self, tmp_path, mock_termux_env, monkeypatch):
