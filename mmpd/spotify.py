@@ -144,6 +144,10 @@ def build_ytsearch_query(track_query: str, limit: int = 1) -> str:
     clean = clean_search_query(track_query)
     if not clean:
         clean = track_query.strip()
+    # Fix instrumental filter: tambah exclusion keywords
+    # YouTube search mendukung operator "-" untuk exclude
+    # Ini akan mengecualikan video instrumental/karaoke dari hasil search
+    clean = f'{clean} -instrumental -karaoke -"backing track" -"off vocal" -accompaniment -"no vocals"'
     return f"ytsearch{limit}:{clean}"
 
 
