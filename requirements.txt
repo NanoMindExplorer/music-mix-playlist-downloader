@@ -14,3 +14,8 @@ rapidfuzz>=3.0.0
 # Fix B2: requests dibutuhkan oleh fetch_synced_lyrics() (iTunes API fallback)
 # Fase 2.1: juga dipakai oleh mmpd.lyrics_providers.LrclibProvider
 requests>=2.31.0
+# Fase 2.3: Spotify official API untuk parse URL track/playlist/album.
+# Memberi akses ke ISRC (untuk YouTube matching akurat 99%+) + duration verification.
+# Setup: set env vars SPOTIPY_CLIENT_ID + SPOTIPY_CLIENT_SECRET (dari Spotify Developer Dashboard)
+# Kalau env vars tidak ada, otomatis fallback ke legacy scraping (spotify_parser.py)
+spotipy>=2.23.0

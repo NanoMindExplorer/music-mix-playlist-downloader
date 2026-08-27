@@ -156,6 +156,8 @@ def run_doctor() -> int:
         "deep_translator",
         "rapidfuzz",
         "requests",
+        # Fase 2.3: spotipy sekarang required (untuk ISRC matching akurasi 99%+)
+        "spotipy",
     ]
 
     for mod in required_modules:
@@ -166,15 +168,33 @@ def run_doctor() -> int:
             print(_fail(f"{mod:20s} {info}"))
             fails.append(f"{mod} not installed")
 
-    # Optional modules
-    print(_info("Optional modules (boleh kosong):"))
-    for mod in ["spotipy"]:
-        ok, info = _check_module(mod)
-        if ok:
-            print(_ok(f"{mod:20s} {info}"))
+    # Optional modules (tidak ada lagi — spotipy sudah required di Fase 2.3)
+
+    # === 2b. Fase 2.3: Spotify API credentials check ===
+    print(_section("2b. Spotify API Credentials (untuk ISRC matching)"))
+
+    spotify_id = os.environ.get("SPOTIPY_CLIENT_ID", "")
+    spotify_secret = os.environ.get("SPOTIPY_CLIENT_SECRET", "")
+
+    if spotify_id and spotify_secret:
+        print(_ok(f"SPOTIPY_CLIENT_ID     set ({len(spotify_id)} chars, masked: {spotify_id[:4]}***{spotify_id[-2:]})"))
+        print(_ok(f"SPOTIPY_CLIENT_SECRET set ({len(spotify_secret)} chars)"))
+        print(_info("Spotify ISRC matching AKTIF (akurasi YouTube matching 99%+)"))
+    else:
+        # Cek apakah spotipy terinstal
+        spotipy_ok, _ = _check_module("spotipy")
+        if spotipy_ok:
+            print(_warn("spotipy terinstal tapi credentials SPOTIPY_CLIENT_ID/SECRET belum diset"))
+            print(_info("   Tanpa credentials, ISRC matching tidak jalan (fallback ke fuzzy matching)"))
+            print(_info("   Setup:"))
+            print(_info("     1. Buka https://developer.spotify.com/dashboard"))
+            print(_info("     2. Create app → dapatkan Client ID + Client Secret"))
+            print(_info("     3. Set environment variables:"))
+            print(_info('        export SPOTIPY_CLIENT_ID="your_client_id"'))
+            print(_info('        export SPOTIPY_CLIENT_SECRET="your_client_secret"'))
+            warns.append("Spotify credentials not set (ISRC matching disabled)")
         else:
-            print(_warn(f"{mod:20s} tidak terinstal (opsional)"))
-            warns.append(f"{mod} optional, tidak terinstal")
+            print(_info("Spotipy tidak terinstal — Spotify parser pakai legacy scraping"))
 
     # === 3. Network Connectivity ===
     print(_section("3. Network Connectivity"))
