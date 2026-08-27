@@ -2,6 +2,34 @@
 
 Aplikasi CLI interaktif *Next-Gen* untuk mendownload YouTube Mix, Playlist Spotify, SoundCloud, dan lainnya secara otomatis, lalu mengonversinya menjadi audio berkualitas tinggi (MP3/FLAC/WAV). Dilengkapi dengan **Kecerdasan Buatan (AI)** untuk menerjemahkan lirik, mengubah huruf asing ke alfabet Latin (Transliterasi), dan memanajemen perpustakaan musik Anda bak seorang profesional!
 
+## 🆕 Apa Baru di v3.2 (Fase 2.2 — Module Extraction)
+
+- **downloader.py turun dari 1165 → 142 baris** (-88%!) — semua logic dipindah ke package `mmpd/`
+- **Modular package structure**:
+  ```
+  mmpd/
+  ├── config.py            (Fase 2.1)
+  ├── logger.py            (Fase 2.1)
+  ├── types.py             (Fase 2.1)
+  ├── lyrics_providers.py  (Fase 2.1)
+  ├── doctor.py            (Fase 2.1)
+  ├── ui.py                (BARU — banner, theme, helpers)
+  ├── ytdlp.py             (BARU — opts builder, hooks)
+  ├── spotify.py           (BARU — URL parser wrapper)
+  ├── lyrics.py            (BARU — transliteration + translation + sync)
+  ├── utils/
+  │   ├── ffmpeg.py        (BARU — subprocess wrapper)
+  │   ├── fs.py            (BARU — atomic write, file ops)
+  │   └── matching.py      (BARU — rapidfuzz wrapper)
+  └── modes/
+      ├── retrofit.py      (BARU — Mode 2)
+      ├── organizer.py     (BARU — Mode 3)
+      └── download.py      (BARU — Mode 1/4/5)
+  ```
+- **Clear separation of concerns**: UI code terpisah dari business logic, file ops di utils/, mode handlers di modes/
+- **Testable**: setiap modul bisa di-unit-test terpisah (Fase 3 akan tambah tests/)
+- **Backward compatible**: semua import lama (`from downloader import run_cli`, `from downloader import fetch_synced_lyrics`) tetap berfungsi via re-export
+
 ## 🆕 Apa Baru di v3.1 (Fase 2.1)
 
 - **Package `mmpd`**: struktur modular dengan `pyproject.toml` resmi

@@ -148,6 +148,11 @@ def get_output_dir() -> str:
     return str(get_config().output_dir)
 
 
+def get_default_path() -> str:
+    """Alias untuk get_output_dir() — backward compat dengan downloader lama."""
+    return get_output_dir()
+
+
 def get_musiclrc_dir() -> str:
     """Backward-compat helper: return musiclrc_dir as string."""
     return str(get_config().musiclrc_dir)
