@@ -160,7 +160,10 @@ def process_transliteration(lrc_path, transliterate_mode):
                     try:
                         new_text = Romanizer(text).romanize()
                         new_lines.append(f"{time_tag.group(0) if time_tag else ''}{new_text}\n")
-                    except:
+                    # Fix R1: bare except menelan KeyboardInterrupt & SystemExit.
+                    # Pakai \`except Exception as e:\` agar Ctrl+C masih bisa menghentikan proses.
+                    except Exception as e:
+                        console.print(f"[dim yellow]⚠️ Romanizer gagal untuk baris ({e}). Memakai teks asli.[/dim yellow]")
                         new_lines.append(line)
                 else:
                     new_lines.append(line)
@@ -288,15 +291,31 @@ def fetch_synced_lyrics(title, lrc_path, sync_huawei, transliterate_mode="❌ 1"
             try:
                 import requests
                 smart_query = re.sub(r'(?i)(official|music video|mv|lyric|video|audio|cover)', '', clean_title).strip()
-                res = requests.get(f"https://itunes.apple.com/search?term={smart_query}&entity=song&limit=1", timeout=5).json()
-                if res.get('resultCount', 0) > 0:
-                    track = res['results'][0]['trackName']
-                    artist = res['results'][0]['artistName']
+                # Fix B2 (silently fail): kode lama memakai \`import requests\` tapi
+                # requests TIDAK ada di requirements.txt. Setiap ImportError ditelan
+                # \`except: pass\` sehingga fitur "Formula Cerdas" mati tanpa user tahu.
+                # Sekarang requests sudah dideklarasikan; kita juga log error eksplisit.
+                from urllib.parse import quote
+                encoded_query = quote(smart_query)
+                res = requests.get(
+                    f"https://itunes.apple.com/search?term={encoded_query}&entity=song&limit=1",
+                    timeout=5,
+                    headers={'User-Agent': 'Mozilla/5.0'}
+                )
+                res.raise_for_status()
+                data = res.json()
+                if data.get('resultCount', 0) > 0:
+                    track = data['results'][0]['trackName']
+                    artist = data['results'][0]['artistName']
                     smart_title = f"{artist} {track}"
                     console.print(f"   [dim cyan]🔍 Formula Cerdas mendeteksi judul resmi: '{smart_title}'. Mencoba ulang...[/dim cyan]")
                     lrc_text = syncedlyrics.search(smart_title)
-            except:
-                pass
+            except ImportError:
+                # Fallback jika requests belum terinstal (seharusnya tidak terjadi setelah fix requirements)
+                console.print("[dim yellow]⚠️ Modul 'requests' belum terinstal — Fitur Formula Cerdas (iTunes) dilewati.[/dim yellow]")
+            except Exception as e:
+                # Fix R1: bare except → except Exception as e. Log setiap kegagalan agar transparan.
+                console.print(f"[dim yellow]⚠️ Formula Cerdas iTunes gagal: {e}[/dim yellow]")
         if lrc_text:
             with open(lrc_path, 'w', encoding='utf-8') as f:
                 f.write(lrc_text)
@@ -392,8 +411,13 @@ def run_retrofit():
     # Langkah 0.5: Bersihkan file sampah sisa timeout sebelumnya (.vtt, .part, .json)
     junk_files = glob.glob(os.path.join(target_folder, "**", "temp_meta_*"), recursive=True)
     for junk in junk_files:
-        try: os.remove(junk)
-        except: pass
+        try:
+            os.remove(junk)
+        # Fix R1: bare except → except Exception as e. FileNotFoundError boleh diabaikan diam-diam.
+        except FileNotFoundError:
+            pass
+        except Exception as e:
+            console.print(f"[dim yellow]⚠️ Gagal menghapus sampah {os.path.basename(junk)}: {e}[/dim yellow]")
             
     if fixed_lrc_count > 0:
         console.print(f"[bold green]✅ Berhasil memperbaiki penamaan & sinkronisasi {fixed_lrc_count} file Lirik lama secara instan![/bold green]")
@@ -476,8 +500,11 @@ def run_retrofit():
             try:
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     ydl.download([search_query])
-            except Exception:
-                pass
+            # Fix R1: walau \`except Exception:\` sudah spesifik, kita log agar user tahu
+            # video mana yang gagal di-fetch metadata/thumbnail. Tanpa ini, retrofit
+            # mode terlihat "berhasil" padahal cover art tidak pernah ter-download.
+            except Exception as e:
+                console.print(f"[dim yellow]⚠️ Gagal ambil metadata YouTube untuk '{title[:30]}...': {e}[/dim yellow]")
                 
             # Hapus lirik lama jika diminta
             if force_overwrite_lrc and os.path.exists(lrc_path):
@@ -577,8 +604,11 @@ def run_retrofit():
                 try:
                     if os.path.exists(junk):
                         os.remove(junk)
-                except Exception:
+                # Fix R1: log failure agar visible, kecuali FileNotFoundError (race condition dengan cleanup paralel).
+                except FileNotFoundError:
                     pass
+                except Exception as e:
+                    console.print(f"[dim yellow]⚠️ Gagal hapus {os.path.basename(junk)}: {e}[/dim yellow]")
                         
             progress.advance(main_task)
             
@@ -898,8 +928,14 @@ def run_cli():
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     if is_spotify_mode:
                         for track in spotify_targets:
-                            try: ydl.download([f"ytsearch1:{track}"])
-                            except Exception: pass
+                            # Fix R1: log lagu Spotify yang gagal agar user tahu lagu mana yang skip.
+                            # Sebelumnya \`except Exception: pass\` menyembunyikan kegagalan total,
+                            # sehingga playlist Spotify terlihat "sukses download" padahal banyak
+                            # lagu yang gagal matching tanpa kabar.
+                            try:
+                                ydl.download([f"ytsearch1:{track}"])
+                            except Exception as e:
+                                console.print(f"[dim red]❌ Gagal unduh '{track[:40]}...': {e}[/dim red]")
                     else:
                         ydl.download([final_target])
                     
