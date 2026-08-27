@@ -1,243 +1,350 @@
-# 🎵 Music Mix & Playlist Downloader Pro (AI Edition)
+# 🎵 Music Mix & Playlist Downloader Pro (AI Edition) v4.0
+
+![CI](https://github.com/NanoMindExplorer/music-mix-playlist-downloader/actions/workflows/ci.yml/badge.svg)
+![Python](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue)
+![Tests](https://img.shields.io/badge/tests-376%20passed-brightgreen)
+![Coverage](https://img.shields.io/badge/coverage-79%25-brightgreen)
+![Version](https://img.shields.io/badge/version-4.0.0-blue)
 
 Aplikasi CLI interaktif *Next-Gen* untuk mendownload YouTube Mix, Playlist Spotify, SoundCloud, dan lainnya secara otomatis, lalu mengonversinya menjadi audio berkualitas tinggi (MP3/FLAC/WAV). Dilengkapi dengan **Kecerdasan Buatan (AI)** untuk menerjemahkan lirik, mengubah huruf asing ke alfabet Latin (Transliterasi), dan memanajemen perpustakaan musik Anda bak seorang profesional!
 
-## 🆕 Apa Baru di v4.0.0 (Fase 5 — Final Polish, Production Ready)
+---
 
-🎉 **Major Release** — Project sekarang production-ready!
+## ⚡ One-Line Install
 
-- **376 unit tests**, coverage **79%** (up from 333 tests / 77% di v3.5)
-- **Hapus `spotify_parser.py`** — legacy scraping dihapus, HANYA pakai spotipy (official API)
-- **Pre-commit hooks** — ruff + black + mypy auto-run sebelum commit
-- **`CONTRIBUTING.md`** — guide lengkap untuk kontributor
-- **`docs/CHANGELOG.md`** — changelog lengkap v3.0 → v4.0
-- **Coverage threshold** 75% → 78% (actual: 79%)
-- **`mmpd/logger.py`** coverage: 74% → **91%** ⬆️
-- **`mmpd/spotify.py`** coverage: 65% → **89%** ⬆️
+Salin & jalankan satu baris perintah di terminal Anda. Otomatis install semua dependensi + enable command `mmpd`. Jalankan ulang untuk update ke versi terbaru!
 
-### Migration dari v3.x ke v4.0
-
-Jika Anda pakai `spotify_parser.py` di code sendiri:
-```python
-# OLD (v3.x, deprecated):
-from spotify_parser import parse_spotify_url
-results = parse_spotify_url(url)  # List[str]
-
-# NEW (v4.0):
-from mmpd.spotify import parse_spotify_url_v2
-tracks = parse_spotify_url_v2(url)  # List[SpotifyTrack] dengan ISRC
+### 📱 Android (Termux)
+```bash
+termux-setup-storage; pkg update -y && pkg install -y python ffmpeg git && rm -rf music-mix-playlist-downloader && git clone https://github.com/NanoMindExplorer/music-mix-playlist-downloader.git && cd music-mix-playlist-downloader && pip install -U -r requirements.txt --break-system-packages && pip install -e . --break-system-packages && echo "✅ Install sukses! Jalankan: mmpd"
 ```
 
-### Setup Pre-commit Hooks (optional, recommended untuk developer)
-
+### 🐧 Linux (Ubuntu/Debian)
 ```bash
-pip install pre-commit
-pre-commit install
-# Sekarang setiap `git commit` akan auto-run ruff + black + mypy
+sudo apt update && sudo apt install -y python3 python3-pip ffmpeg git && rm -rf music-mix-playlist-downloader && git clone https://github.com/NanoMindExplorer/music-mix-playlist-downloader.git && cd music-mix-playlist-downloader && pip3 install -U -r requirements.txt --break-system-packages && pip3 install -e . --break-system-packages && echo "✅ Install sukses! Jalankan: mmpd"
 ```
 
-## 🆕 Apa Baru di v3.5 (Fase 4 — Hardening & Polish)
+### 🪟 Windows (PowerShell)
+```powershell
+winget install ffmpeg; if (Test-Path music-mix-playlist-downloader) { Remove-Item -Recurse -Force music-mix-playlist-downloader }; git clone https://github.com/NanoMindExplorer/music-mix-playlist-downloader.git; cd music-mix-playlist-downloader; pip install -U -r requirements.txt; pip install -e .; echo "✅ Install sukses! Jalankan: mmpd"
+```
 
-- **Translation cache** (SQLite) — avoid re-translate same lyrics via Google API
-- **Lyrics cache** (SQLite, TTL 30 hari) — avoid re-fetch dari LRCLIB/syncedlyrics
-- **333 unit tests** (+99 dari Fase 3), coverage **77%** (naik dari 72%)
-- **`mmpd/cache.py`** baru — SQLite-based persistent cache (no external dep)
-- **Deprecate `spotify_parser.py`** — pakai `mmpd.spotify_client.SpotifyClient` (official API)
-- **Termux ruff fix** — skip ruff/black di Android (butuh Rust toolchain)
-- **Coverage threshold** naik dari 70% → 75%
-- **mypy strict** di CI (Python <3.14 only)
-- **Modul yang sekarang 100% coverage**: `concurrent.py`, `ytdlp.py`, `utils/__init__.py`
-
-### Performance Impact
-
-Cache menghindari API call berulang:
-- Translation: kalau lirik yang sama di-translate lagi, **100% cache hit** (skip Google API)
-- Lyrics: kalau track yang sama di-search lagi dalam 30 hari, **cache hit** (skip LRCLIB API)
-
-Untuk playlist Spotify 50 lagu yang di-download ulang:
-- Tanpa cache: ~50 API calls ke LRCLIB + ~50 calls ke Google Translate
-- Dengan cache: **0 API calls** (semua cache hit) → 10x lebih cepat
-
-## 🆕 Apa Baru di v3.4 (Fase 3 — Testing & QA)
-
-- **Unit tests komprehensif** (10 file test, 100+ test cases) untuk semua modul modular
-- **Coverage target 80%+** via pytest-cov dengan config di `pyproject.toml`
-- **GitHub Actions CI/CD** — auto-run tests di setiap push/PR (Python 3.9-3.14)
-- **Mock strategy** — tidak hit network saat test (mock yt_dlp, spotipy, requests, pykakasi)
-- **Test fixtures** di `tests/conftest.py` (mock_track_info, mock_youtube_entry, dll)
-- **CI status badge** — lihat status build real-time di README
-- **Type check** via mypy (non-blocking untuk saat ini)
-- **Linting** via ruff (non-blocking untuk saat ini)
-
-### Run tests locally
+### 🚀 Setelah Install
 
 ```bash
-# Install dev dependencies
-pip install -r requirements.txt -r requirements-dev.txt
+mmpd                  # jalankan aplikasi (mode interaktif)
+mmpd doctor           # cek semua dependency & network
+mmpd --version        # cetak versi
+python downloader.py  # alternatif (backward compatible)
+```
 
+---
+
+## 🎮 Mode Operasi & Cara Penggunaan
+
+Jalankan `mmpd` (atau `python downloader.py`). Anda akan disajikan UI *Cyberpunk* interaktif (gunakan panah keyboard ⬆️/⬇️ untuk memilih):
+
+### 📥 Mode 1 — Download YouTube
+Download video tunggal, playlist, atau Mix dari YouTube. Cukup tempel URL atau **ketik judul lagu** langsung.
+
+**Cara pakai:**
+1. Pilih **"📥 1. Mode Utama (Download Lagu/Playlist dari YouTube)"**
+2. Tempel URL YouTube (atau ketik judul lagu)
+3. Pilih format audio (MP3 320kbps / FLAC / WAV / Original)
+4. Aktifkan/nonaktifkan anti-duplikat, lirik, transliterasi, terjemahan
+5. Konfirmasi → unduh otomatis ke `Downloads/YT_Downloader/[Nama Playlist]/`
+
+### 🛠️ Mode 2 — Retrofit (Perbaiki Lagu Lama)
+Punya koleksi MP3/FLAC lama tanpa cover art atau lirik? Mode ini akan:
+- Scan folder Anda untuk file audio
+- Cari metadata di YouTube (thumbnail + subtitle)
+- Suntikkan cover art ke file audio via FFmpeg
+- Cari & tulis lirik via LRCLIB API
+- Apply transliterasi + terjemahan jika diminta
+
+**Cara pakai:**
+1. Pilih **"🛠️ 2. Mode Retrofit"**
+2. Masukkan path folder yang ingin diperbaiki
+3. Pilih target: Lirik + Cover / Lirik saja / Cover saja
+4. Pilih mesin lirik, transliterasi, terjemahan
+5. Konfirmasi → mesin akan memproses setiap file satu per satu
+
+### 📁 Mode 3 — Auto-Organizer (Rapikan File Lirik)
+Punya file `.lrc` hasil download manual yang berantakan di folder Downloads? Mode ini akan:
+- Match file `.lrc` dengan `.mp3` menggunakan fuzzy string matching (rapidfuzz)
+- Rename `.lrc` agar sama persis dengan nama `.mp3`
+- Pindahkan `.mp3` ke folder `Music/` dan `.lrc` ke folder `Music/Musiclrc/`
+- Khusus Termux: sinkronisasi ke folder Huawei/HarmonyOS Musiclrc
+
+**Cara pakai:**
+1. Taruh file `.mp3` dan `.lrc` di folder Downloads
+2. Pilih **"📁 3. Mode Pengatur Otomatis"**
+3. Konfirmasi → file otomatis dirapikan dan dipindahkan
+
+### 🎵 Mode 4 — Download Spotify
+Download lagu, album, atau playlist langsung dari URL Spotify. Memerlukan setup Spotify API credentials untuk ISRC matching (akurasi 99%+).
+
+**Cara pakai:**
+1. Pilih **"🎵 4. Mode Spotify"**
+2. Tempel URL Spotify (track/album/playlist)
+3. Pilih format audio + opsi lirik
+4. **Opsional**: Aktifkan ISRC matching (akurasi 99%+) dan concurrent downloads (3x lebih cepat)
+5. Konfirmasi → setiap track di-search di YouTube lalu didownload
+
+**Setup Spotify API (recommended untuk ISRC matching):**
+```bash
+# 1. Buka https://developer.spotify.com/dashboard → Create app (gratis)
+# 2. Dapatkan Client ID + Client Secret
+# 3. Set environment variables:
+echo 'export SPOTIPY_CLIENT_ID="your_client_id"' >> ~/.bashrc
+echo 'export SPOTIPY_CLIENT_SECRET="your_client_secret"' >> ~/.bashrc
+source ~/.bashrc
+# 4. Verifikasi:
+mmpd doctor    # harus muncul "Spotify ISRC matching AKTIF"
+```
+
+### ☁️ Mode 5 — Download SoundCloud
+Download trek tunggal atau playlist dari SoundCloud.
+
+**Cara pakai:**
+1. Pilih **"☁️ 5. Mode SoundCloud"**
+2. Tempel URL SoundCloud atau ketik judul lagu
+3. Pilih format + opsi lirik
+4. Konfirmasi → unduh otomatis ke `Downloads/YT_Downloader/SoundCloud_Downloads/`
+
+---
+
+## 🚀 Fitur AI & Lirik Lanjutan
+
+### 1. Dual-Engine Lyrics (Sistem Mesin Ganda)
+Pilihan presisi darimana lirik diambil:
+
+| Mesin | Sumber | Cocok untuk |
+|---|---|---|
+| 🎧 Mesin 1 | LRCLIB API → syncedlyrics (Musixmatch/NetEase) | Lagu asli (original) |
+| ✍️ Mesin 2 | LRCLIB/syncedlyrics (input judul manual) | Lagu cover (judul Spotify berbeda dari YouTube) |
+| 📺 Mesin 3 | YouTube Subtitles (CC) | Lagu cover (timing 100% akurat dengan video) |
+
+**Fallback chain otomatis**: LRCLIB (gratis, no-auth, database terbesar) → syncedlyrics → YouTube CC. Semua hasil di-cache di SQLite (TTL 30 hari) untuk 10x speedup saat re-download.
+
+### 2. Transliterasi Otomatis (Romaji/Pinyin/Latin)
+Tidak bisa membaca huruf Kanji/Hanzi/Hangul? Sistem akan mendeteksi bahasa otomatis (langdetect) dan mengubah aksara asing ke alfabet Latin:
+- **Jepang** → Romaji (pykakasi, Hepburn)
+- **Mandarin** → Pinyin (pypinyin)
+- **Korea** → Revised Romanization (korean_romanizer)
+- **Thai/Arab/Rusia/dll** → Latin (anyascii fallback)
+
+Timestamp karaoke `[00:00.00]` tetap utuh, tidak rusak.
+
+### 3. Terjemahan Lirik Bilingual (AI Translation)
+Terjemahan setiap baris lirik ke **Bahasa Indonesia**, ditambahkan tepat di bawah teks asli dengan timestamp identik (standar LRC bilingual):
+```
+[00:01.23] Hello world
+[00:01.23] Halo dunia
+```
+
+**Dual-engine translation**: Google Translate (utama) → MyMemory (fallback kalau Google rate-limit). Hasil di-cache di SQLite (tidak pernah expire) — re-translate lirik yang sama = 100% cache hit, skip API call.
+
+### 4. ISRC-Based YouTube Matching (Akurasi 99%+)
+Untuk Spotify downloads, sistem pakai ISRC (International Standard Recording Code) untuk match track Spotify dengan video YouTube yang tepat:
+- **Strategi 1**: ISRC match (akurasi 99%+) — extract ISRC dari metadata top-3 YouTube candidates
+- **Strategi 2**: Fuzzy + duration verification (akurasi ~90%) — fuzzy title match + verifikasi durasi <5 detik
+- **Strategi 3**: Pure fuzzy (threshold 80%) — fallback terakhir
+
+### 5. Concurrent Downloads (3x Speedup)
+Download playlist Spotify dengan 3 worker paralel (ThreadPoolExecutor). Playlist 50 lagu: ~250s (sequential) → ~85s (concurrent).
+
+### 6. SQLite Cache (10x Speedup untuk Re-Download)
+- **Translation cache**: SHA256(source_text + lang) → translated_text (never expire)
+- **Lyrics cache**: SHA256(title + artist + isrc) → lyrics (TTL 30 hari)
+- **Storage**: `~/.local/share/mmpd/cache/cache.db` (Linux) atau `$PREFIX/var/cache/mmpd/cache.db` (Termux)
+
+Playlist 50 lagu re-download dalam 30 hari → **0 API calls** (semua cache hit).
+
+---
+
+## 🛡️ Fitur Fundamental
+
+- **Sistem Anti-Duplikat (Smart Archive)**: Melompati lagu yang sudah pernah diunduh jika Anda mendownload sebuah Playlist berkali-kali.
+- **Injeksi ID3 & Cover Art (FFmpeg)**: Gambar thumbnail ditanam ke dalam file audio, terdeteksi oleh pemutar mobil (Head Unit) maupun Android/iOS.
+- **Atomic Write**: Semua penulisan file lirik pakai pattern `tempfile + os.replace()` — file tidak bisa korup jika proses crash di tengah jalan.
+- **Structured Logging**: Semua aktivitas tercatat di file log dengan rotation (10MB/file, keep 5 files):
+  - Linux: `~/.local/share/mmpd/logs/mmpd.log`
+  - Termux: `$PREFIX/var/log/mmpd/mmpd.log`
+  - Windows: `%LOCALAPPDATA%/mmpd/logs/mmpd.log`
+- **Resume Otomatis**: Lanjutkan unduhan kapan saja meskipun ada video YouTube yang di-private atau terblokir.
+- **Filename Aman Lintas-Platform**: `restrictfilenames=True` — karakter ilegal Windows NTFS (`/:*?"<>|`) otomatis dihindari.
+
+> **💡 Lokasi Penyimpanan Cerdas:**
+> Hasil akhir (baik MP3 maupun lirik) otomatis diorganisasikan ke dalam:
+> 📁 **`[Penyimpanan Internal]/Downloads/YT_Downloader/[Nama Playlist]`**
+
+---
+
+## 🩺 `mmpd doctor` — Diagnostik
+
+Jalankan `mmpd doctor` untuk cek:
+1. **System binaries**: ffmpeg, git (PATH + version)
+2. **Python modules**: 14 required modules (yt-dlp, rich, syncedlyrics, spotipy, dll)
+3. **Spotify API credentials**: SPOTIPY_CLIENT_ID/SECRET (untuk ISRC matching)
+4. **Network connectivity**: TCP connect test ke 6 endpoint (LRCLIB, iTunes, Spotify, YouTube, SoundCloud)
+5. **Storage & permissions**: writable check untuk output/log/cache dir + Termux storage permission
+6. **Configuration**: print AppConfig paths (home, output, log, config)
+
+**Exit codes**: 0 = semua OK, 1 = ada failure (dep missing), 2 = hanya warning (network unreachable).
+
+---
+
+## 📊 Format Audio yang Didukung
+
+| Format | Codec | Quality | Use Case |
+|---|---|---|---|
+| MP3 | mp3 | 320kbps | Default — kompatibel semua player |
+| FLAC | flac | Lossless | Best quality murni — audiophile |
+| WAV | wav | Uncompressed | Mentah — editing/professional |
+| Original | best | Bawaan YouTube | Tidak konversi — fastest |
+
+> **Catatan**: WAV tidak support embed cover art (limitasi format). Pilih MP3 atau FLAC untuk cover art.
+
+---
+
+## 🌍 Bahasa Transliterasi yang Didukung
+
+| Bahasa | Aksara | Konversi | Library |
+|---|---|---|---|
+| Jepang | Kanji/Hiragana/Katakana | Romaji (Hepburn) | pykakasi |
+| Mandarin | Hanzi (Simplified/Traditional) | Pinyin | pypinyin |
+| Korea | Hangul | Revised Romanization | korean_romanizer |
+| Thai | Thai script | Latin | anyascii |
+| Arab | Arabic script | Latin | anyascii |
+| Rusia | Cyrillic | Latin | anyascii |
+| Lainnya | Aksara non-Latin | Latin | anyascii (fallback universal) |
+
+Bahasa yang sudah pakai alfabet Latin (Inggris, Indonesia, Spanyol, dll) otomatis di-skip (tidak perlu transliterasi).
+
+---
+
+## 🔧 Entry Points (Cara Menjalankan)
+
+Setelah install (`pip install -e .`), ada 3 cara menjalankan:
+
+```bash
+mmpd                  # console script (recommended, setelah pip install)
+python -m mmpd        # module entry (alternatif)
+python downloader.py  # legacy entry (backward compatible)
+```
+
+Subcommands:
+```bash
+mmpd                  # mode interaktif (menu 5 mode)
+mmpd doctor           # diagnostik
+mmpd --version        # cetak versi
+```
+
+---
+
+## 🏗️ Arsitektur Modular (v4.0.0)
+
+```
+music-mix-playlist-downloader/
+├── downloader.py              # Thin entry point (142 baris)
+├── pyproject.toml             # PEP 621 packaging
+├── mmpd/                      # Package modular (20 modul)
+│   ├── config.py              # Path & env detection (Termux/Linux/Windows)
+│   ├── logger.py              # Structured logging + rotation
+│   ├── cache.py               # SQLite cache (translation + lyrics)
+│   ├── types.py               # TrackInfo, LyricsResult, LyricsProvider Protocol
+│   ├── ui.py                  # Banner, theme, questionary helpers
+│   ├── ytdlp.py               # yt-dlp wrapper (opts builder, hooks)
+│   ├── lyrics.py              # Transliteration + translation pipeline
+│   ├── lyrics_providers.py    # LRCLIB + syncedlyrics + fallback chain
+│   ├── spotify.py             # Spotify URL parser (spotipy)
+│   ├── spotify_client.py      # SpotifyClient (official API)
+│   ├── isrc_matcher.py        # ISRC-based YouTube matching (99%+ accuracy)
+│   ├── concurrent.py          # ThreadPoolExecutor wrapper
+│   ├── doctor.py              # mmpd doctor diagnostics
+│   ├── utils/                 # Stateless utilities
+│   │   ├── ffmpeg.py          # FFmpeg subprocess wrapper (no shell injection)
+│   │   ├── fs.py              # Atomic write, file ops
+│   │   └── matching.py        # rapidfuzz wrapper, query cleaning
+│   └── modes/                 # Mode handlers (CLI menus)
+│       ├── download.py        # Mode 1/4/5 (YouTube/Spotify/SoundCloud)
+│       ├── retrofit.py        # Mode 2 (Perbaiki file lama)
+│       └── organizer.py       # Mode 3 (Auto-organizer)
+├── tests/                     # 376 unit tests, 79% coverage
+├── .github/workflows/ci.yml   # GitHub Actions CI/CD (Python 3.9-3.14)
+├── .pre-commit-config.yaml    # Pre-commit hooks (ruff + black + mypy)
+├── CONTRIBUTING.md            # Guide untuk kontributor
+└── docs/CHANGELOG.md          # Changelog v3.0 → v4.0
+```
+
+---
+
+## 🧪 Testing & Quality Assurance
+
+```bash
 # Run semua test
 pytest tests/ -v
 
 # Run dengan coverage report
 pytest tests/ --cov=mmpd --cov-report=term
 
-# Generate HTML coverage report (buka htmlcov/index.html)
+# Generate HTML coverage report
 pytest tests/ --cov=mmpd --cov-report=html
+# Buka: htmlcov/index.html
 ```
+
+- **376 unit tests**, 0 failures
+- **Coverage 79%** (target: 78%)
+- **CI/CD**: GitHub Actions auto-run di Python 3.9-3.14 (Linux + macOS)
+- **Pre-commit hooks**: ruff + black + mypy auto-run sebelum commit
 
 Lihat [`tests/README.md`](tests/README.md) untuk dokumentasi lengkap test suite.
 
-## 🆕 Apa Baru di v3.3 (Fase 2.3 — Spotify Modernization)
+---
 
-- **Spotify official API** via `spotipy` (menggantikan scraping `__NEXT_DATA__` yang rapuh)
-- **ISRC-based YouTube matching** (akurasi 99%+ vs fuzzy title matching lama)
-- **Concurrent downloads** untuk Spotify playlist (3 worker paralel, 3x speedup)
-- **Spotify API retry** dengan exponential backoff (1s → 2s → 4s)
-- **`mmpd doctor`** sekarang cek Spotify credentials (SPOTIPY_CLIENT_ID/SECRET)
-- **Fallback chain**: spotipy (with ISRC) → spotipy (no ISRC) → legacy scraping
-- **Backward compatible**: tanpa credentials Spotify, tetap jalan pakai legacy scraping
+## 🤝 Kontribusi
 
-### Setup Spotify API (opsional, tapi recommended untuk ISRC matching)
-
-1. Buka https://developer.spotify.com/dashboard
-2. Login dengan akun Spotify (gratis)
-3. Klik **"Create app"**
-4. Isi App name & description (apa saja), Redirect URI: `http://localhost`
-5. Setelah app dibuat, buka Settings → salin **Client ID** dan **Client Secret**
-6. Set environment variables di Termux/Linux:
-   ```bash
-   echo 'export SPOTIPY_CLIENT_ID="your_client_id_here"' >> ~/.bashrc
-   echo 'export SPOTIPY_CLIENT_SECRET="your_client_secret_here"' >> ~/.bashrc
-   source ~/.bashrc
-   ```
-7. Verifikasi: `mmpd doctor` → harus muncul "Spotify ISRC matching AKTIF"
-
-Tanpa setup ini, aplikasi tetap jalan tapi Spotify matching pakai fuzzy title (akurasi ~70%).
-
-## 🆕 Apa Baru di v3.2 (Fase 2.2 — Module Extraction)
-
-- **downloader.py turun dari 1165 → 142 baris** (-88%!) — semua logic dipindah ke package `mmpd/`
-- **Modular package structure**:
-  ```
-  mmpd/
-  ├── config.py            (Fase 2.1)
-  ├── logger.py            (Fase 2.1)
-  ├── types.py             (Fase 2.1)
-  ├── lyrics_providers.py  (Fase 2.1)
-  ├── doctor.py            (Fase 2.1)
-  ├── ui.py                (BARU — banner, theme, helpers)
-  ├── ytdlp.py             (BARU — opts builder, hooks)
-  ├── spotify.py           (BARU — URL parser wrapper)
-  ├── lyrics.py            (BARU — transliteration + translation + sync)
-  ├── utils/
-  │   ├── ffmpeg.py        (BARU — subprocess wrapper)
-  │   ├── fs.py            (BARU — atomic write, file ops)
-  │   └── matching.py      (BARU — rapidfuzz wrapper)
-  └── modes/
-      ├── retrofit.py      (BARU — Mode 2)
-      ├── organizer.py     (BARU — Mode 3)
-      └── download.py      (BARU — Mode 1/4/5)
-  ```
-- **Clear separation of concerns**: UI code terpisah dari business logic, file ops di utils/, mode handlers di modes/
-- **Testable**: setiap modul bisa di-unit-test terpisah (Fase 3 akan tambah tests/)
-- **Backward compatible**: semua import lama (`from downloader import run_cli`, `from downloader import fetch_synced_lyrics`) tetap berfungsi via re-export
-
-## 🆕 Apa Baru di v3.1 (Fase 2.1)
-
-- **Package `mmpd`**: struktur modular dengan `pyproject.toml` resmi
-- **Multi-entry point**:
-  - `python downloader.py` (backward compatible, masih support)
-  - `python -m mmpd` (baru — module entry)
-  - `mmpd` (baru — entry point setelah `pip install .`)
-- **`mmpd doctor`**: command diagnostik untuk cek dependency, network, storage, dan konfigurasi
-- **Structured logging** dengan file rotation di `~/.local/share/mmpd/logs/mmpd.log` (atau `$PREFIX/var/log/mmpd/mmpd.log` di Termux)
-- **Lyrics provider abstraction** dengan fallback chain:
-  1. **LRCLIB** (baru — database lirik sinkron terbesar, gratis, no-auth)
-  2. **syncedlyrics** (existing — Musixmatch/NetEase/Megalobiz)
-- **Type hints** bertahap untuk fungsi publik + `mypy` config
-- **Centralized config** (`mmpd/config.py`) — path detection Termux/Linux/Windows terpusat
+Lihat [`CONTRIBUTING.md`](CONTRIBUTING.md) untuk guide lengkap cara berkontribusi:
+- Setup environment
+- Testing workflow
+- Code style (ruff + black + mypy)
+- PR process
 
 ---
 
-## ⚡ Cara Instalasi & Pembaruan (One-Line)
+## 📋 Changelog
 
-Cukup salin (copy) dan jalankan (paste) satu baris perintah di bawah ini pada terminal sesuai dengan perangkat yang Anda gunakan. 
-Perintah sakti ini didesain untuk **otomatis menginstal versi terbaru** beserta seluruh dependensi AI-nya. Jalankan ulang perintah ini kapan saja untuk *update* ke versi paling mutakhir!
+Lihat [`docs/CHANGELOG.md`](docs/CHANGELOG.md) untuk riwayat lengkap v3.0 → v4.0.
 
-### 📱 Android (Termux)
-*(Catatan: Anda akan dimintai izin akses penyimpanan, tekan Allow/Izinkan)*
-```bash
-termux-setup-storage; pkg update -y && pkg install -y python ffmpeg git && rm -rf music-mix-playlist-downloader && git clone https://github.com/NanoMindExplorer/music-mix-playlist-downloader.git && cd music-mix-playlist-downloader && pip install -U -r requirements.txt --break-system-packages
-```
+### Versi Singkat:
 
-**Cara pakai baru (Fase 2.1):** setelah clone, Anda bisa juga install sebagai package:
-```bash
-pip install -e . --break-system-packages   # enable command `mmpd`
-mmpd doctor                                  # cek semua dependency & network
-mmpd                                         # jalankan aplikasi (sama dengan `python downloader.py`)
-```
-
-### 🐧 Linux (Ubuntu/Debian)
-```bash
-sudo apt update && sudo apt install -y python3 python3-pip ffmpeg git && rm -rf music-mix-playlist-downloader && git clone https://github.com/NanoMindExplorer/music-mix-playlist-downloader.git && cd music-mix-playlist-downloader && pip3 install -U -r requirements.txt --break-system-packages
-```
-
-### 🪟 Windows (PowerShell)
-*(Catatan: Pastikan Anda telah menginstal Python dan Git terlebih dahulu).*
-```powershell
-winget install ffmpeg; if (Test-Path music-mix-playlist-downloader) { Remove-Item -Recurse -Force music-mix-playlist-downloader }; git clone https://github.com/NanoMindExplorer/music-mix-playlist-downloader.git; cd music-mix-playlist-downloader; pip install -U -r requirements.txt
-```
+| Version | Highlight |
+|---|---|
+| **4.0.0** | Production ready — hapus legacy, 376 tests, 79% coverage, pre-commit |
+| 3.5.0 | SQLite cache (translation + lyrics), 333 tests, 77% coverage |
+| 3.4.0 | 234 unit tests + GitHub Actions CI/CD + bug fix transliteration |
+| 3.3.0 | Spotify official API (spotipy) + ISRC matching + concurrent downloads |
+| 3.2.0 | Module extraction: downloader.py 1165→142 baris (-88%) |
+| 3.1.0 | Package mmpd/ + pyproject.toml + LRCLIB + doctor + logging |
+| 3.0.0 | Initial release (Fase 1: critical fixes + security) |
 
 ---
 
-## 🚀 Fitur Kecerdasan Buatan (AI) & Lirik Lanjutan
+## 📄 License
 
-Versi terbaru ini membawa perombakan masif di sektor pemrosesan Lirik Sinkron (`.lrc`).
-
-### 1. Dual-Engine Lyrics (Sistem Mesin Ganda)
-Berbeda dengan pengunduh biasa, Anda diberikan pilihan presisi darimana lirik diambil:
-- **🎧 Mesin Spotify/Musixmatch:** Mengambil lirik versi "Studio Asli" yang bersih. Sangat cocok jika Anda mendownload lagu-lagu resmi.
-- **✍️ Mesin Spotify (Input Manual):** Fitur dewa bagi Anda yang mendownload lagu *Cover*. Mengingat judul di YouTube (misal `【Rainych】JUSTadICE`) sering kali berbeda dengan di Spotify (`JUSTadICE Rainych`), mesin ini akan memberhentikan sementara layar dan meminta Anda mengetik kata kunci Spotify secara spesifik untuk lagu tersebut!
-- **📺 Mesin YouTube Subtitles:** Khusus untuk lagu *Cover* yang liriknya hanya tersedia di CC YouTube agar ketukan dan *timing* nafas sang *cover artist* tepat sasaran 100%.
-
-### 2. Transliterasi Otomatis (Romaji/Pinyin/Latin)
-Bosan tidak bisa menyanyikan lagu Jepang, China, atau Korea karena hurufnya *Kanji/Hanzi*?
-Sistem dibekali dengan **Deteksi Bahasa Otomatis** (menggunakan *langdetect*). Mesin akan mendeteksi bahasa lagu Anda dan langsung menerjemahkan aksara asing tersebut ke alfabet latin yang bisa Anda baca (Romaji untuk Jepang, Pinyin untuk China, Latin untuk Korea, Thai, Arab, dll), tanpa merusak waktu karaoke (`[00:00.00]`).
-
-### 3. Terjemahan Lirik AI Berdampingan (Dual-Engine Translation)
-Ingin tahu arti lagunya? Mesin ini dilengkapi dengan sistem penerjemahan langsung!
-Jika diaktifkan, mesin akan menerjemahkan setiap baris lirik ke **Bahasa Indonesia** menggunakan AI (Google Translate). Jika sistem Google memblokir karena Anda mengunduh terlalu banyak (Error 500), mesin ini **memiliki otak cadangan (Fallback)** untuk secara otomatis membelokkan lalu lintas terjemahan ke *MyMemoryTranslator*. Hasil terjemahan akan disuntikkan secara presisi dengan ketukan waktu yang persis sama, tepat di bawah teks aslinya!
-
-### 4. Mode Auto-Organizer (Integrasi Huawei/HarmonyOS)
-Bagi pengguna *Huawei Music Player* yang mensyaratkan lirik (`.lrc`) berada terpisah di folder `Internal/Music/Musiclrc`, Anda cukup:
-- Mengunduh lirik secara manual di internet (jika lagu tersebut super langka).
-- Menaruh file `.lrc` kotor tersebut ke sembarang tempat di dalam folder *Downloads* Anda.
-- Menjalankan **Mode 3 (Auto-Organizer)**. CLI akan melacak lirik tersebut, mencocokkannya dengan lagu MP3 Anda, menamai ulang (rename) agar sama persis, memindahkannya ke dalam folder `Musiclrc`, lalu menghapus sisa file sampahnya. Keajaiban sinkronisasi instan!
+MIT License — bebas pakai, modifikasi, dan distribusi.
 
 ---
 
-## 🎮 Mode Operasi Utama
+## 🙏 Credits
 
-Jalankan skrip dengan perintah:
-```bash
-python downloader.py
-```
+**Artfully Crafted by ✦ NanoMindExplorer ✦**
 
-Anda akan disajikan UI *Cyberpunk* interaktif (gunakan panah *keyboard* ⬆️/⬇️ untuk memilih):
-
-- **📥 1. Mode Utama (Unduhan Baru):** Tempelkan link YouTube (Video tunggal/Playlist/Mix) atau cukup **ketik judul lagu** langsung.
-- **🛠️ 2. Mode Retrofit (Otomatis Perbaiki Lagu Lama):** Punya lagu-lagu lama yang tidak bergambar (Cover Art) atau tidak memiliki lirik? Biarkan mesin memindai folder Anda, melacak asal-usulnya di YouTube, dan **menyuntikkan Lirik & Cover ke dalam file MP3/FLAC lama Anda secara otomatis!**
-- **📁 3. Mode Pengatur Otomatis:** Mode cerdas untuk menjodohkan file lirik manual yang berantakan dengan MP3 Anda.
-- **🎵 4. Mode Spotify:** Unduh lagu, album, atau *playlist* langsung dari tautan Spotify dengan dukungan parsing metadata tingkat lanjut yang meneruskan unduhan tanpa hambatan.
-- **☁️  5. Mode SoundCloud:** Dukungan langsung untuk mengunduh trek tunggal maupun *playlist* dari SoundCloud.
-
----
-
-## 🛡️ Fitur Fundamental
-- **Sistem Anti-Duplikat (Smart Archive):** Melompati lagu yang sudah pernah diunduh jika Anda mendownload sebuah Playlist berkali-kali.
-- **Injeksi ID3 & Cover Art (FFmpeg):** Gambar *thumbnail* akan ditanam secara paksa dan indah ke dalam file, terdeteksi oleh pemutar mobil (Head Unit) maupun Android/iOS.
-- **Resume Otomatis:** Lanjutkan unduhan kapan saja meskipun ada video YouTube yang di-*private* atau terblokir.
-
-> **💡 Lokasi Penyimpanan Cerdas:**  
-> Hasil akhir (baik MP3 maupun lirik) otomatis diorganisasikan ke dalam:  
-> 📁 **`[Penyimpanan Internal]/Downloads/YT_Downloader/[Nama Playlist]`**
+Powered by:
+- [yt-dlp](https://github.com/yt-dlp/yt-dlp) — YouTube/SoundCloud downloader
+- [spotipy](https://spotipy.readthedocs.io/) — Spotify Web API
+- [LRCLIB](https://lrclib.net/) — Synced lyrics database (gratis, no-auth)
+- [syncedlyrics](https://github.com/moehmeni/syncedlyrics) — Multi-source lyrics aggregator
+- [rich](https://rich.readthedocs.io/) — Terminal UI (Cyberpunk theme)
+- [FFmpeg](https://ffmpeg.org/) — Audio conversion + cover art injection
