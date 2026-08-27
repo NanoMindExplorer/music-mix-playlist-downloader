@@ -269,14 +269,20 @@ def _run_download_loop(mode: int) -> None:
                             main_task=main_task,
                         )
                     else:
-                        # Sequential fallback (lama)
+                        # Sequential fallback — Fix: filter instrumental + fallback
                         for track in spotify_targets:
                             try:
                                 search_q = build_ytsearch_query(track, limit=1)
                                 ydl.download([search_q])
                             except Exception as e:
-                                console.print(f"[dim red]❌ Gagal unduh '{track[:40]}...': {e}[/dim red]")
-                                _log.error("Spotify track failed '%s': %s", track, e)
+                                # Fallback: coba tanpa filter (kalau filter terlalu ketat)
+                                try:
+                                    from mmpd.utils.matching import clean_search_query
+                                    fallback_q = f"ytsearch1:{clean_search_query(track)}"
+                                    ydl.download([fallback_q])
+                                except Exception as e2:
+                                    console.print(f"[dim red]❌ Gagal unduh '{track[:40]}...': {e2}[/dim red]")
+                                    _log.error("Spotify track failed '%s': %s (fallback: %s)", track, e, e2)
                 else:
                     ydl.download([final_target])
 
@@ -678,15 +684,22 @@ def _download_spotify_concurrent(ydl_opts: dict, tracks, progress, main_task) ->
     progress.update(main_task, total=len(tracks), completed=0)
 
     def _worker(item_query: str):
-        """Download satu track via ytsearch1."""
+        """Download satu track via ytsearch1 dengan filter instrumental."""
         try:
             search_q = build_ytsearch_query(item_query, limit=1)
-            # Setiap worker buat YoutubeDL instance sendiri (thread-safe)
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([search_q])
             return True, None, {}
         except Exception as e:
-            return False, str(e), {}
+            # Fallback: coba tanpa filter exclusion
+            try:
+                from mmpd.utils.matching import clean_search_query
+                fallback_q = f"ytsearch1:{clean_search_query(item_query)}"
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([fallback_q])
+                return True, None, {"used_fallback": True}
+            except Exception as e2:
+                return False, str(e2), {}
 
     queries = [t.to_ytsearch_query() for t in tracks]
 
