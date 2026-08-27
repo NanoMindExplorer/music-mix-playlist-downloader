@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "music-mix-playlist-downloader"
-version = "3.5.0"
+version = "4.0.0"
 description = "CLI Next-Gen untuk download YouTube Mix, Playlist Spotify, SoundCloud dengan AI Lyrics Engine"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -150,9 +150,9 @@ omit = [
 ]
 
 [tool.coverage.report]
-# Target coverage untuk modul yang di-test: 75%+
-# Fase 4: naikkan dari 70% ke 75% (actual: 77%)
-fail_under = 75
+# Target coverage untuk modul yang di-test: 78%+
+# Fase 5: naikkan dari 75% ke 78% (actual: 79%)
+fail_under = 78
 show_missing = true
 exclude_lines = [
     "pragma: no cover",
