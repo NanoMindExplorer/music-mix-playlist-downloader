@@ -440,16 +440,20 @@ def _write_bilingual_lrc(lrc_path, lines, texts_to_translate, translated_texts):
                 timestamp = match.group(1)
                 original_text = line[len(timestamp):].rstrip("\n")
                 
-                # Trik untuk Player Musik:
-                # Banyak player (seperti Musicolet/Poweramp) menyorot baris TERAKHIR yang
-                # memiliki timestamp yang sama. Agar lirik ASLI yang disorot (bukan terjemahan),
-                # kita letakkan terjemahan lebih dulu, lalu lirik asli di bawahnya.
+                # Penalaran Maksimal untuk UI Modern:
+                # Agar lirik asli tetap di ATAS dan terjemahan di BAWAH, namun
+                # player musik tidak menggeser highlight ke terjemahan saja,
+                # kita harus menggabungkan keduanya menjadi SATU baris LRC.
+                # Kita menggunakan tag HTML <br> untuk membuat baris baru secara visual,
+                # sehingga player menyorot seluruh blok ini bersamaan.
                 
-                # Terjemahan: warna cyan (#00FFFF) dan ukuran kecil (<small>)
-                output.append(f'{timestamp}<font color="#00FFFF"><small>{t_text}</small></font>')
-                
-                # Lirik Asli: warna putih (#FFFFFF) atau default, diletakkan terakhir agar disorot
-                output.append(f'{timestamp}<font color="#FFFFFF">{original_text}</font>')
+                combined_line = (
+                    f'{timestamp}'
+                    f'<font color="#FFFFFF">{original_text}</font>'
+                    f'<br>'
+                    f'<font color="#00FFFF"><small>{t_text}</small></font>'
+                )
+                output.append(combined_line)
             else:
                 output.append(line.rstrip("\n"))
         else:
