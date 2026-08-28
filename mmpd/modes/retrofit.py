@@ -104,7 +104,6 @@ def run_retrofit() -> None:
             }
             selected_fmt = ask_select("Pilih Format Lirik Bilingual:", list(format_choices.keys()))
             if selected_fmt:
-                import os
                 os.environ["MMPD_BILINGUAL_FORMAT"] = format_choices[selected_fmt]
 
     # === Langkah 0: Bersihkan & rename file LRC lama ===

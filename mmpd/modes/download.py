@@ -198,7 +198,6 @@ def _run_download_loop(mode: int) -> None:
             }
             selected_fmt = ask_select("Pilih Format Lirik Bilingual:", list(format_choices.keys()))
             if selected_fmt:
-                import os
                 os.environ["MMPD_BILINGUAL_FORMAT"] = format_choices[selected_fmt]
 
     sync_huawei = False
