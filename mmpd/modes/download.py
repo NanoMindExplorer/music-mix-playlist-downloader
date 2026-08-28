@@ -196,9 +196,9 @@ def _run_download_loop(mode: int) -> None:
                 "⏱️ 2. Pisah 2 baris (Micro-offset) - Terbaik untuk Poweramp": "pisah",
                 "📁 3. File terpisah (.id.lrc)": "id_only"
             }
-            selected_fmt = ask_select("Pilih Format Lirik Bilingual:", list(format_choices.keys()))
-            if selected_fmt:
-                os.environ["MMPD_BILINGUAL_FORMAT"] = format_choices[selected_fmt]
+            selected_bilingual_fmt = ask_select("Pilih Format Lirik Bilingual:", list(format_choices.keys()))
+            if selected_bilingual_fmt:
+                os.environ["MMPD_BILINGUAL_FORMAT"] = format_choices[selected_bilingual_fmt]
 
     sync_huawei = False
     if download_lyrics and is_termux():
