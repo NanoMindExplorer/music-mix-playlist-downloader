@@ -33,22 +33,43 @@ custom_theme = questionary.Style([
 
 
 def print_banner() -> None:
-    """Cetak banner Cyberpunk di console (clear screen first)."""
+    """Cetak banner ala Antigravity CLI dengan logo headphone."""
     console.clear()
+    
+    # ASCII Headphone
+    headphone_art = [
+        "      .--------.      ",
+        "    /`          `\\    ",
+        "   /   .------.   \\   ",
+        "  |   /        \\   |  ",
+        "  |  |          |  |  ",
+        " [___]          [___] "
+    ]
+    
+    # Antigravity/Gemini gradient colors (Blue to Magenta)
+    gradient = ["#4285F4", "#5C6BC0", "#7E57C2", "#AB47BC", "#D81B60", "#EC407A"]
+    
     banner = Text()
-    banner.append("✦ ════════════════════════════════════════════ ✦\n", style="bold cyan")
-    banner.append(" High-Fidelity & Lossless Audio Engine \n", style="italic bright_white")
-    banner.append("✦ ════════════════════════════════════════════ ✦\n\n", style="bold cyan")
-    banner.append("Artfully Crafted by\n", style="dim white")
-    banner.append("✦ NanoMindExplorer ✦", style="bold bright_yellow")
+    banner.append("\n")
+    for i, line in enumerate(headphone_art):
+        color = gradient[i % len(gradient)]
+        banner.append(line + "\n", style=f"bold {color}")
+        
+    banner.append("\n")
+    banner.append("Music Mix Playlist Downloader\n", style="bold white")
+    banner.append("High-Fidelity Audio Engine\n\n", style="dim white")
+    banner.append("Artfully Crafted by ", style="dim white")
+    banner.append("NanoMindExplorer", style="bold #4285F4")
+    
     banner.justify = "center"
+    
     console.print(
         Panel(
             banner,
-            box=box.DOUBLE,
-            border_style="bold magenta",
+            box=box.ROUNDED,
+            border_style="#5C6BC0",
             padding=(1, 4),
-            title="[bold bright_white on magenta] 🎵 YT AUDIO DOWNLOADER PRO [/bold bright_white on magenta]",
+            title="[bold white] 🎵 YT AUDIO DOWNLOADER PRO [/bold white]",
             title_align="center",
             subtitle="[bold white]v3.1[/bold white] [dim]• Interactive CLI & Retrofit Engine[/dim]",
             subtitle_align="center",
