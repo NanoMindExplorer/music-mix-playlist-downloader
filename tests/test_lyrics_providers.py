@@ -354,7 +354,7 @@ class TestBuildDefaultChain:
         """Test default chain punya LRCLIB + syncedlyrics."""
         from mmpd.lyrics_providers import build_default_chain
         chain = build_default_chain()
-        assert len(chain._providers) == 2
+        assert len(chain._providers) == 3
 
     def test_default_chain_lrclib_first(self):
         """Test LRCLIB ada di urutan pertama (priority=0)."""
@@ -367,5 +367,6 @@ class TestBuildDefaultChain:
         """Test syncedlyrics ada di urutan kedua (priority=10)."""
         from mmpd.lyrics_providers import build_default_chain
         chain = build_default_chain()
-        assert chain._providers[1].name == "syncedlyrics"
-        assert chain._providers[1].priority == 10
+        assert chain._providers[1].name == "musixmatch_native"
+        assert chain._providers[2].name == "syncedlyrics"
+        assert chain._providers[2].priority == 10

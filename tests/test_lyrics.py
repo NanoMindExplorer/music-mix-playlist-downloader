@@ -234,10 +234,10 @@ class TestProcessTranslation:
             process_translation(str(lrc), True)
 
         content = lrc.read_text(encoding="utf-8")
-        # Original line preserved
-        assert "[00:00.00]Hello world" in content
-        # Translation added with same timestamp
-        assert "[00:00.00]Halo dunia" in content
+        # Original line preserved and formatted
+        assert '<font color="#FFFFFF">Hello world</font>' in content
+        # Translation appended with <br> and <small>
+        assert '<br><font color="#00FFFF"><small>Halo dunia</small></font>' in content
 
     def test_translation_fallback_to_mymemory(self, tmp_path):
         """Test fallback ke MyMemory kalau Google error."""
@@ -316,6 +316,7 @@ class TestProcessTranslation:
         content = lrc.read_text(encoding="utf-8")
         # Should NOT have duplicate line (skip identical translation)
         assert content.count("Halo dunia") == 1
+        assert "<small>" not in content
 
 
 # ============================================================================
