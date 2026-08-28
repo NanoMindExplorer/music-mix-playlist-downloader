@@ -38,21 +38,15 @@ def print_banner() -> None:
     
     # ASCII Headphone (Generated with Artem)
     headphone_art = [
-        "                O@##@@o            ",
-        "                ########o          ",
-        "                   oOO##.          ",
-        "                 O.@@#o.           ",
-        "                 o OOoo.           ",
-        "                   OOO             ",
-        "            .O@@######@@O.         ",
-        "           o###############.       ",
-        "          .O@###############.      ",
-        "           #############@@###O     ",
-        "            ###@OOooo########.     ",
-        "            O#######O.######O      ",
-        "            ...####@o..###Oo       ",
-        "                .@#### o@@ .   ..  ",
-        "           oOo  O@########O  .     "
+        "       ..,,,'..       ",
+        "    ,dO:'....':Od,    ",
+        "  ,x.            .x,  ",
+        " lc                lc ",
+        " ,                  , ",
+        ".' :kX.        .Nk: '.",
+        " 'o0oKk . .    kKo0o' ",
+        "   OlkM.      .Mklk   ",
+        "     .'        '.     "
     ]
     
     # Antigravity/Gemini gradient colors (Blue to Magenta)
