@@ -315,26 +315,69 @@ _LANG_MAP_MMYMEMORY = {
 }
 
 
-def process_translation(lrc_path: str, translate_mode: bool) -> None:
-    """
-    Translate lirik ke Bahasa Indonesia, tambahkan sebagai baris bilingual
-    dengan timestamp identik. Format LRC standar industri:
-        [00:01.23] original text
-        [00:01.23] terjemahan
+def _strip_lrc_text(line: str) -> str:
+    """Ambil teks lirik tanpa tag waktu / meta."""
+    return re.sub(r"\[.*?\]", "", line).strip()
 
-    Fase 4: cek translation cache (SQLite) sebelum hit API.
-    Cache key: SHA256(source_text + source_lang + target_lang).
+
+def _detect_source_lang(texts) -> str:
+    """Tebak kode bahasa source untuk mesin terjemahan."""
+    blob = " ".join(t for t in texts if t and t.strip())
+    script = detect_script(blob)
+    return {
+        "ja": "ja",
+        "zh": "zh-CN",
+        "ko": "ko",
+        "th": "th",
+    }.get(script, "auto")
+
+
+def is_already_bilingual(lines) -> bool:
+    """Deteksi LRC yang sudah bilingual (gabung ' / ' atau pasangan micro-offset)."""
+    payload = 0
+    slash_hits = 0
+    parsed = []
+    for line in lines:
+        text = _strip_lrc_text(line)
+        if not text:
+            continue
+        payload += 1
+        if "  /  " in line or " / " in line:
+            slash_hits += 1
+        m = re.match(r"\[(\d+):(\d+(?:\.\d+)?)\]", line)
+        if m:
+            ts = int(m.group(1)) * 60 + float(m.group(2))
+            parsed.append((ts, text.lower()))
+
+    if payload and slash_hits / payload >= 0.35:
+        return True
+
+    close_pairs = 0
+    for i in range(len(parsed) - 1):
+        gap = parsed[i + 1][0] - parsed[i][0]
+        if 0 < gap <= 0.85 and parsed[i][1] != parsed[i + 1][1]:
+            close_pairs += 1
+    return close_pairs >= max(3, len(parsed) // 5) if parsed else False
+
+
+def process_translation(
+    lrc_path: str,
+    translate_mode: bool,
+    source_lines=None,
+) -> None:
+    """
+    Translate lirik ke Bahasa Indonesia, tambahkan sebagai baris bilingual.
+
+    Penting untuk akurasi:
+        Terjemahkan dari `source_lines` (lirik aksara asli) jika tersedia,
+        lalu tempel hasilnya ke file tampilan (yang mungkin sudah di-latin-kan).
+        Menerjemahkan pinyin/romaji jauh lebih tidak akurat daripada
+        menerjemahkan Hanzi/Kana/Hangul asli.
 
     Args:
-        lrc_path:       Path file .lrc
-        translate_mode: True untuk aktifkan translation, False untuk skip
-
-    Behavior:
-        - Skip jika file tidak ada atau translate_mode False
-        - Fase 4: cek translation cache dulu (SQLite) - kalau 100% hit, skip API
-        - Pakai Google Translate (deep_translator.GoogleTranslator)
-        - Fallback ke MyMemory jika Google error 500 atau rate-limited
-        - Tulis hasil via atomic_write_text (cegah korupsi)
+        lrc_path:       Path file .lrc (versi tampilan)
+        translate_mode: True untuk aktifkan translation
+        source_lines:   Opsional, baris LRC sumber (aksara asli) untuk diterjemahkan
     """
     if not os.path.exists(lrc_path) or not translate_mode:
         return
@@ -343,13 +386,23 @@ def process_translation(lrc_path: str, translate_mode: bool) -> None:
         with open(lrc_path, "r", encoding="utf-8") as f:
             lines = f.readlines()
 
-        # Kumpulkan semua baris teks (tanpa timestamp) untuk translate batch
-        texts_to_translate = []
-        for line in lines:
-            text = re.sub(r"\[.*?\]", "", line).strip()
-            texts_to_translate.append(text if text else " ")
+        if is_already_bilingual(lines):
+            _log.info("Translation skip (sudah bilingual): %s", os.path.basename(lrc_path))
+            return
 
-        # === Fase 4: Cek translation cache per-baris ===
+        display_texts = []
+        source_texts = []
+        for i, line in enumerate(lines):
+            display = _strip_lrc_text(line)
+            display_texts.append(display if display else " ")
+            if source_lines is not None and i < len(source_lines):
+                src = _strip_lrc_text(source_lines[i])
+                source_texts.append(src if src else (display if display else " "))
+            else:
+                source_texts.append(display if display else " ")
+
+        source_lang = _detect_source_lang(source_texts)
+
         try:
             from mmpd.cache import get_translation_cache, set_translation_cache
             cache_available = True
@@ -357,26 +410,30 @@ def process_translation(lrc_path: str, translate_mode: bool) -> None:
             cache_available = False
             _log.debug("mmpd.cache tidak tersedia, skip translation cache")
 
-        cached_translations = [None] * len(texts_to_translate)
+        cached_translations = [None] * len(source_texts)
         if cache_available:
-            for i, text in enumerate(texts_to_translate):
+            for i, text in enumerate(source_texts):
                 if text.strip():
-                    cached = get_translation_cache(text, "auto", "id")
+                    cached = get_translation_cache(text, source_lang, "id")
+                    if cached is None and source_lang != "auto":
+                        cached = get_translation_cache(text, "auto", "id")
                     if cached is not None:
                         cached_translations[i] = cached
 
-            # Cek apakah SEMUA baris ada di cache
             cache_hit_count = sum(1 for c in cached_translations if c is not None)
-            non_empty_count = sum(1 for t in texts_to_translate if t.strip())
+            non_empty_count = sum(1 for t in source_texts if t.strip())
 
             if cache_hit_count == non_empty_count and non_empty_count > 0:
-                _log.info("Translation: 100%% cache hit (%d baris) untuk %s",
-                          cache_hit_count, os.path.basename(lrc_path))
+                _log.info(
+                    "Translation: 100%% cache hit (%d baris) untuk %s",
+                    cache_hit_count,
+                    os.path.basename(lrc_path),
+                )
                 translated_texts = [
                     cached_translations[i] if cached_translations[i] is not None else " "
-                    for i in range(len(texts_to_translate))
+                    for i in range(len(source_texts))
                 ]
-                _write_bilingual_lrc(lrc_path, lines, texts_to_translate, translated_texts)
+                _write_bilingual_lrc(lrc_path, lines, display_texts, translated_texts)
                 return
 
             if cache_hit_count > 0:
@@ -386,99 +443,190 @@ def process_translation(lrc_path: str, translate_mode: bool) -> None:
                     non_empty_count,
                 )
 
-        # Translate hanya baris yang miss cache (atau semua kalau no cache)
         texts_to_translate_api = []
         indices_to_translate = []
-        for i, text in enumerate(texts_to_translate):
+        for i, text in enumerate(source_texts):
             if not cache_available or (cached_translations[i] is None and text.strip()):
                 texts_to_translate_api.append(text)
                 indices_to_translate.append(i)
 
         if not texts_to_translate_api:
-            # Semua cached
             translated_texts = [
                 cached_translations[i] if cached_translations[i] is not None else " "
-                for i in range(len(texts_to_translate))
+                for i in range(len(source_texts))
             ]
-            _write_bilingual_lrc(lrc_path, lines, texts_to_translate, translated_texts)
+            _write_bilingual_lrc(lrc_path, lines, display_texts, translated_texts)
             return
 
-        # Translate via API (Google -> MyMemory fallback)
-        api_translations = _translate_via_api(texts_to_translate_api)
+        api_translations = _translate_via_api(texts_to_translate_api, source_lang=source_lang)
 
-        # Merge: cached + api results
-        translated_texts = [" "] * len(texts_to_translate)
+        translated_texts = [" "] * len(source_texts)
         for i, idx in enumerate(indices_to_translate):
             if i < len(api_translations):
                 translated_texts[idx] = api_translations[i]
-                # Fase 4: cache hasil API
-                if cache_available:
+                if cache_available and api_translations[i].strip():
                     set_translation_cache(
-                        texts_to_translate[idx], "auto", "id",
+                        source_texts[idx], source_lang, "id",
                         api_translations[i], provider="google",
                     )
-        # Isi yang cached
-        for i in range(len(texts_to_translate)):
+        for i in range(len(source_texts)):
             if cached_translations[i] is not None:
                 translated_texts[i] = cached_translations[i]
 
-        _write_bilingual_lrc(lrc_path, lines, texts_to_translate, translated_texts)
+        _write_bilingual_lrc(lrc_path, lines, display_texts, translated_texts)
 
     except Exception as e:
         _log.warning("Gagal menerjemahkan lirik %s: %s", os.path.basename(lrc_path), e)
 
 
-def _translate_via_api(texts_to_translate):
-    """
-    Translate list of texts via Google Translate (fallback MyMemory).
-    Menggunakan translasi per-baris secara konruen untuk menjamin alignment 1:1.
-    """
-    from deep_translator import GoogleTranslator, MyMemoryTranslator
-    import concurrent.futures
+def _looks_like_failed_translation(src: str, dest: str) -> bool:
+    """True jika hasil terjemahan kosong, identik, atau masih aksara sumber."""
+    if not dest or not dest.strip():
+        return True
+    s = src.strip().lower()
+    d = dest.strip().lower()
+    if s == d:
+        return True
+    if "error 500" in d or "mymemory warning" in d:
+        return True
+    src_script = detect_script(src)
+    dest_script = detect_script(dest)
+    if src_script != "latin" and dest_script == src_script:
+        return True
+    return False
 
-    translated_texts = [""] * len(texts_to_translate)
-    
-    # === Strategi 1: Google Translate (concurrency per baris) ===
-    try:
-        translator = GoogleTranslator(source="auto", target="id")
-        
-        def _trans_google(idx, text):
-            if not text.strip(): return idx, " "
-            res = translator.translate(text)
-            if not res or "Error 500" in res:
-                raise Exception("API Error")
-            return idx, res
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-            futures = [executor.submit(_trans_google, i, t) for i, t in enumerate(texts_to_translate)]
-            for f in concurrent.futures.as_completed(futures):
-                idx, res = f.result()
-                translated_texts[idx] = res
-        return translated_texts
-    except Exception as e:
-        _log.warning("Google Translate gagal (%s). Beralih ke MyMemory...", e)
+def _parse_numbered_batch(translated: str, count: int):
+    """Parse hasil batch bernomor '1. ...' kembali ke list."""
+    lines = [ln.strip() for ln in translated.splitlines() if ln.strip()]
+    result = [None] * count
+    for ln in lines:
+        m = re.match(r"^(\d+)[.)]\s*(.*)$", ln)
+        if m:
+            idx = int(m.group(1)) - 1
+            if 0 <= idx < count:
+                result[idx] = m.group(2).strip()
+    if sum(1 for x in result if x) >= max(1, count // 2):
+        return result
+    # fallback: jumlah baris sama
+    if len(lines) == count:
+        cleaned = [re.sub(r"^\d+[.)]\s*", "", ln).strip() for ln in lines]
+        return cleaned
+    return None
 
-        # === Strategi 2: MyMemory (lebih lambat tapi reliable) ===
+
+def _translate_batch_google(texts, source_lang: str):
+    from deep_translator import GoogleTranslator
+
+    numbered = "\n".join(f"{i + 1}. {t}" for i, t in enumerate(texts))
+    translator = GoogleTranslator(source=source_lang or "auto", target="id")
+    raw = translator.translate(numbered)
+    if not raw or "Error 500" in raw:
+        raise RuntimeError("Google batch empty")
+    parsed = _parse_numbered_batch(raw, len(texts))
+    if not parsed:
+        raise RuntimeError("Google batch parse failed")
+    return parsed
+
+
+def _translate_one_with_fallback(text: str, source_lang: str) -> str:
+    """Translate satu baris: Google → MyMemory. Isolasi error per baris."""
+    if not text.strip():
+        return " "
+
+    last_err = None
+    for src in (source_lang, "auto"):
         try:
-            translator_mm = MyMemoryTranslator(source="auto", target="id")
-            def _trans_mm(idx, text):
-                if not text.strip(): return idx, " "
-                res = translator_mm.translate(text)
-                if not res: return idx, " "
-                if "MYMEMORY WARNING" in res:
-                    raise Exception("MyMemory Rate Limit")
-                return idx, res
+            from deep_translator import GoogleTranslator
+            res = GoogleTranslator(source=src or "auto", target="id").translate(text)
+            if res and not _looks_like_failed_translation(text, res):
+                return res.strip()
+        except Exception as e:
+            last_err = e
 
-            translated_texts_mm = [""] * len(texts_to_translate)
-            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-                futures = [executor.submit(_trans_mm, i, t) for i, t in enumerate(texts_to_translate)]
-                for f in concurrent.futures.as_completed(futures):
-                    idx, res = f.result()
-                    translated_texts_mm[idx] = res
-            return translated_texts_mm
+    mm_source = {
+        "ja": "ja-JP",
+        "zh-CN": "zh-CN",
+        "zh": "zh-CN",
+        "ko": "ko-KR",
+        "th": "th-TH",
+        "auto": "en-GB",
+    }.get(source_lang or "auto", "en-GB")
+    try:
+        from deep_translator import MyMemoryTranslator
+        res = MyMemoryTranslator(source=mm_source, target="id-ID").translate(text)
+        if res and "MYMEMORY WARNING" not in res and not _looks_like_failed_translation(text, res):
+            return res.strip()
+    except Exception as e:
+        last_err = e
+        try:
+            from deep_translator import MyMemoryTranslator
+            res = MyMemoryTranslator(source="autodetect", target="id-ID").translate(text)
+            if res and "MYMEMORY WARNING" not in res and res.strip():
+                return res.strip()
         except Exception as e2:
-            _log.warning("Semua mesin terjemahan gagal: %s", e2)
-            return [" "] * len(texts_to_translate)
+            last_err = e2
+
+    _log.debug("Translate line gagal (%s): %s", last_err, text[:40])
+    return " "
+
+
+def _translate_via_api(texts_to_translate, source_lang: str = "auto"):
+    """
+    Translate list of texts ke Indonesia.
+
+    Strategi:
+        1. Batch bernomor lewat Google (konteks antar-baris → lebih akurat)
+        2. Baris yang gagal di-batch di-retry satu-satu
+        3. Satu baris gagal TIDAK menggagalkan seluruh lagu
+    """
+    n = len(texts_to_translate)
+    translated_texts = [" "] * n
+
+    pending = []
+    for i, text in enumerate(texts_to_translate):
+        if text and text.strip():
+            pending.append(i)
+        else:
+            translated_texts[i] = " "
+
+    BATCH = 10
+    i = 0
+    while i < len(pending):
+        chunk_idx = pending[i:i + BATCH]
+        chunk_txt = [texts_to_translate[j] for j in chunk_idx]
+        used_batch = False
+        if len(chunk_txt) >= 3:
+            try:
+                parsed = _translate_batch_google(chunk_txt, source_lang)
+                ok = 0
+                for local, global_i in enumerate(chunk_idx):
+                    val = parsed[local] if parsed and local < len(parsed) and parsed[local] else None
+                    if val and not _looks_like_failed_translation(chunk_txt[local], val):
+                        translated_texts[global_i] = val
+                        ok += 1
+                if ok >= max(1, len(chunk_txt) // 2):
+                    used_batch = True
+                    # retry sisa yang kosong
+                    for local, global_i in enumerate(chunk_idx):
+                        if translated_texts[global_i].strip() in ("",):
+                            translated_texts[global_i] = _translate_one_with_fallback(
+                                chunk_txt[local], source_lang
+                            )
+            except Exception as e:
+                _log.debug("Google batch gagal (%s), fallback per-baris", e)
+        if not used_batch:
+            for local, global_i in enumerate(chunk_idx):
+                translated_texts[global_i] = _translate_one_with_fallback(
+                    chunk_txt[local], source_lang
+                )
+        i += BATCH
+        if i < len(pending):
+            time.sleep(0.15)
+
+    filled = sum(1 for t in translated_texts if t and t.strip())
+    _log.info("Translation API: %d/%d baris berhasil (src=%s)", filled, len(pending), source_lang)
+    return translated_texts
 
 
 def _write_bilingual_lrc(lrc_path, lines, texts_to_translate, translated_texts):
@@ -486,65 +634,70 @@ def _write_bilingual_lrc(lrc_path, lines, texts_to_translate, translated_texts):
     Tulis file LRC bilingual dengan format standar industri atau gabungan.
     Konfigurasi format via ENV `MMPD_BILINGUAL_FORMAT` (gabung, pisah, id_only).
     """
-    import os
     format_mode = os.environ.get("MMPD_BILINGUAL_FORMAT", "gabung")
 
     if len(translated_texts) < len(lines):
         translated_texts.extend([""] * (len(lines) - len(translated_texts)))
 
     def _parse_ts(ts_str):
-        # ts_str is like "[00:01.23]"
         m = re.match(r"\[(\d+):(\d+\.\d+)\]", ts_str)
-        if not m: return None
+        if not m:
+            m = re.match(r"\[(\d+):(\d+)\]", ts_str)
+            if not m:
+                return None
+            return int(m.group(1)) * 60 + float(m.group(2))
         return int(m.group(1)) * 60 + float(m.group(2))
 
     def _format_ts(seconds):
+        if seconds < 0:
+            seconds = 0.0
         mins = int(seconds // 60)
         secs = seconds % 60
         return f"[{mins:02d}:{secs:05.2f}]"
 
-    # Pre-parse timestamps untuk micro-offset
     parsed_lines = []
     for line in lines:
-        match = re.match(r"(\[\d+:\d+\.\d+\])", line)
+        match = re.match(r"(\[\d+:\d+(?:\.\d+)?\])", line)
         ts_val = _parse_ts(match.group(1)) if match else None
         parsed_lines.append((line, match.group(1) if match else None, ts_val))
 
     output = []
     output_id = []
-    
+    written = 0
+
     for i, (line, ts_str, ts_val) in enumerate(parsed_lines):
         t_text = translated_texts[i].strip() if translated_texts[i] else ""
-        
-        if t_text and t_text.lower() != texts_to_translate[i].strip().lower() and ts_str and ts_val is not None:
+        original_payload = texts_to_translate[i].strip() if i < len(texts_to_translate) else _strip_lrc_text(line)
+
+        useful = (
+            bool(t_text)
+            and t_text.lower() != original_payload.lower()
+            and not _looks_like_failed_translation(original_payload, t_text)
+        )
+
+        if useful and ts_str and ts_val is not None:
             original_text = line[len(ts_str):].rstrip("\n")
-            
+            written += 1
             if format_mode == "pisah":
-                # Cari next_ts
                 next_ts = None
                 for j in range(i + 1, len(parsed_lines)):
                     if parsed_lines[j][2] is not None:
                         next_ts = parsed_lines[j][2]
                         break
-                
-                # Offset logic
                 DEFAULT_OFFSET = 0.6
                 if next_ts is None:
                     new_ts_val = ts_val + DEFAULT_OFFSET
                 else:
                     gap = next_ts - ts_val
-                    new_ts_val = ts_val + min(DEFAULT_OFFSET, gap * 0.4)
-                
+                    new_ts_val = ts_val + min(DEFAULT_OFFSET, max(0.25, gap * 0.4))
                 new_ts_str = _format_ts(new_ts_val)
-                
                 output.append(line.rstrip("\n"))
-                output.append(f'{new_ts_str}{t_text}')
+                output.append(f"{new_ts_str}{t_text}")
             elif format_mode == "id_only":
                 output.append(line.rstrip("\n"))
-                output_id.append(f'{ts_str}{t_text}')
+                output_id.append(f"{ts_str}{t_text}")
             else:
-                # Default: gabung
-                combined_line = f'{ts_str}{original_text}  /  {t_text}'
+                combined_line = f"{ts_str}{original_text}  /  {t_text}"
                 output.append(combined_line)
         else:
             output.append(line.rstrip("\n"))
@@ -553,11 +706,15 @@ def _write_bilingual_lrc(lrc_path, lines, texts_to_translate, translated_texts):
 
     if format_mode == "id_only":
         id_path = lrc_path.replace(".lrc", ".id.lrc")
-        atomic_write_text(id_path, "\n".join(output_id))
-    
-    atomic_write_text(lrc_path, "\n".join(output))
-    _log.info("Translation OK: %s (mode=%s)", os.path.basename(lrc_path), format_mode)
+        atomic_write_text(id_path, "\n".join(output_id) + "\n")
 
+    atomic_write_text(lrc_path, "\n".join(output) + "\n")
+    _log.info(
+        "Translation OK: %s (mode=%s, lines=%d)",
+        os.path.basename(lrc_path),
+        format_mode,
+        written,
+    )
 
 
 def fetch_synced_lyrics(
@@ -664,9 +821,16 @@ def fetch_synced_lyrics(
 
         # === Tulis hasil & jalankan post-processing ===
         if lrc_text:
+            original_lines = [
+                (ln if ln.endswith("\n") else ln + "\n")
+                for ln in lrc_text.splitlines()
+            ]
             atomic_write_text(lrc_path, lrc_text)
+            # Transliterasi MAY overwrite aksara asli. Terjemahan HARUS
+            # memakai snapshot asli agar Mandarin/Jepang/Korea tidak
+            # diterjemahkan dari pinyin/romaji (akurasi anjlok).
             process_transliteration(lrc_path, transliterate_mode)
-            process_translation(lrc_path, translate_mode)
+            process_translation(lrc_path, translate_mode, source_lines=original_lines)
             if sync_huawei:
                 sync_huawei_lrc(lrc_path)
             _log.info("Lyrics written to %s", lrc_path)

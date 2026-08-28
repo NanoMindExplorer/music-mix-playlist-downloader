@@ -18,6 +18,7 @@ import pytest
 
 from mmpd.lyrics import (
     fetch_synced_lyrics,
+    is_already_bilingual,
     process_translation,
     process_transliteration,
     sync_huawei_lrc,
@@ -314,6 +315,53 @@ class TestProcessTranslation:
         content = lrc.read_text(encoding="utf-8")
         # Should NOT have duplicate line (skip identical translation)
         assert content.count("Halo dunia") == 1
+
+
+
+    def test_translation_uses_original_source_lines(self, tmp_path):
+        """Terjemahan harus memakai aksara asli, bukan pinyin tampilan."""
+        lrc = tmp_path / "song.lrc"
+        lrc.write_text("[00:00.00]wo ai ni\n", encoding="utf-8")
+        source = ["[00:00.00]我爱你\n"]
+
+        mock_translator = MagicMock()
+        mock_translator.translate.return_value = "1. Aku mencintaimu"
+
+        mock_module = MagicMock()
+        mock_module.GoogleTranslator = MagicMock(return_value=mock_translator)
+
+        with patch.dict("sys.modules", {"deep_translator": mock_module}):
+            process_translation(str(lrc), True, source_lines=source)
+
+        content = lrc.read_text(encoding="utf-8")
+        assert "Aku mencintaimu" in content
+        # Google harus menerima teks Hanzi, bukan pinyin
+        called_args = [c.args[0] for c in mock_translator.translate.call_args_list if c.args]
+        assert any("我爱你" in str(a) for a in called_args)
+
+    def test_skip_already_bilingual_slash_format(self, tmp_path):
+        """Jangan terjemahkan ulang LRC yang sudah format gabung."""
+        lrc = tmp_path / "song.lrc"
+        original = "[00:00.00]Hello world  /  Halo dunia\n[00:02.00]Goodbye  /  Selamat tinggal\n"
+        lrc.write_text(original, encoding="utf-8")
+        process_translation(str(lrc), True)
+        assert lrc.read_text(encoding="utf-8") == original
+
+
+class TestAlreadyBilingual:
+    def test_detect_slash_format(self):
+        lines = [
+            "[00:00.00]Hello world  /  Halo dunia\n",
+            "[00:02.00]Goodbye  /  Selamat tinggal\n",
+        ]
+        assert is_already_bilingual(lines) is True
+
+    def test_detect_plain_not_bilingual(self):
+        lines = [
+            "[00:00.00]Hello world\n",
+            "[00:02.00]Goodbye\n",
+        ]
+        assert is_already_bilingual(lines) is False
 
 
 # ============================================================================
