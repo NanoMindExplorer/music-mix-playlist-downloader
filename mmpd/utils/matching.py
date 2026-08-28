@@ -71,42 +71,39 @@ def fuzzy_match(
 ) -> Optional[str]:
     """
     Cari best match dari candidates berdasarkan fuzzy string matching.
-
-    Args:
-        source:     String source (mis. nama file .lrc tanpa extension)
-        candidates: List candidate strings (mis. semua nama file .mp3)
-        threshold:  Score minimum 0-100 untuk dianggap match (default 50)
-
-    Returns:
-        Best matching candidate, atau None jika tidak ada yang >= threshold.
-
-    Examples:
-        >>> fuzzy_match("Adele - Hello", ["Adele Hello.mp3", "Random.mp3"])
-        'Adele Hello'
     """
+    try:
+        import opencc
+        converter = opencc.OpenCC('t2s')
+        source_comp = converter.convert(source)
+        candidates_comp = [converter.convert(c) for c in candidates]
+    except ImportError:
+        source_comp = source
+        candidates_comp = candidates
+
     try:
         from rapidfuzz import fuzz
     except ImportError:
         # Fallback: simple equality (lower case)
-        norm_source = normalize_title(source)
-        for c in candidates:
+        norm_source = normalize_title(source_comp)
+        for idx, c in enumerate(candidates_comp):
             if norm_source == normalize_title(c):
-                return c
+                return candidates[idx]
         return None
 
     if not candidates:
         return None
 
-    norm_source = normalize_title(source)
+    norm_source = normalize_title(source_comp)
     best_match: Optional[str] = None
     best_score = 0
 
-    for candidate in candidates:
+    for idx, candidate in enumerate(candidates_comp):
         norm_candidate = normalize_title(candidate)
         score = fuzz.ratio(norm_source, norm_candidate)
         if score > best_score:
             best_score = score
-            best_match = candidate
+            best_match = candidates[idx]
 
     if best_score >= threshold:
         return best_match
