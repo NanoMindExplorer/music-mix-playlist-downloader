@@ -36,18 +36,19 @@ def print_banner() -> None:
     """Cetak banner ala Antigravity CLI dengan logo headphone."""
     console.clear()
     
-    # ASCII Headphone (Generated with dense half-blocks)
+    # ASCII Headphone (Generated with Artem)
     headphone_art = [
-        "          ▄█████████▄         ",
-        "       ▄█▀▀    ████████▄      ",
-        "      ▄█       ████████▀▄     ",
-        "      █        ████▀▀█  ▀█    ",
-        "      █▄███   ███ █      █    ",
-        "     ▄█████  ▄███▄█      █    ",
-        "     ██████  ▀█████▄█▄  █▀    ",
-        "      ▀████   ▀███████▄█▀     ",
-        "        ▀▀▀    ███████▀       ",
-        "               ███▀▀▀         "
+        "              .;ldxxKWKko:'.            ",
+        "           ':'.     :MMMMMMMKc.         ",
+        "         .;         :MMMMMMWdl;.        ",
+        "        ;.          ;KMWxKdd,   ..      ",
+        "        l  ...     'c' 'x   .    '      ",
+        "        l'cMMd     xM,  l.       ..     ",
+        "        OooMMd   ..;o,.;d        ,      ",
+        "       .KooMMx     ,NMMMd,,;.   ..      ",
+        "         ;oMMx     .,MMMMMMd''.'.       ",
+        "           ,:.      .MMMMMMW0;.         ",
+        "                    .WKkoc'.            "
     ]
     
     # Antigravity/Gemini gradient colors (Blue to Magenta)
