@@ -487,8 +487,14 @@ def _process_lyrics_for_all_audio(
                 )
             elif os.path.exists(lrc_path):
                 # Lirik sudah ada (dari YouTube CC) — apply post-processing
+                source_lines = None
+                try:
+                    with open(lrc_path, "r", encoding="utf-8") as f:
+                        source_lines = f.readlines()
+                except Exception:
+                    pass
                 process_transliteration(lrc_path, transliterate)
-                process_translation(lrc_path, translate_id)
+                process_translation(lrc_path, translate_id, source_lines=source_lines)
                 if sync_huawei:
                     sync_huawei_lrc(lrc_path)
 
