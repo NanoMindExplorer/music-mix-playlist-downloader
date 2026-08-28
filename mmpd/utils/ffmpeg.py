@@ -144,3 +144,13 @@ def convert_audio(
     except Exception as e:
         _log.error("Convert audio gagal %s → %s: %s", input_path, output_path, e)
         return False
+
+def crop_cover_to_square(input_path: str, output_path: str) -> bool:
+    if not check_ffmpeg_available():
+        return False
+    cmd = ["ffmpeg", "-y", "-v", "quiet", "-i", input_path, "-vf", "crop='min(iw,ih)':'min(iw,ih)'", output_path]
+    try:
+        subprocess.run(cmd, check=True)
+        return True
+    except Exception:
+        return False

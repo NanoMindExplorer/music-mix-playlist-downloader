@@ -19,3 +19,6 @@ requests>=2.31.0
 # Setup: set env vars SPOTIPY_CLIENT_ID + SPOTIPY_CLIENT_SECRET (dari Spotify Developer Dashboard)
 # Kalau env vars tidak ada, otomatis fallback ke legacy scraping (spotify_parser.py)
 spotipy>=2.23.0
+opencc-python-reimplemented>=0.1.7
+ToJyutping>=0.2.1
+pythainlp>=4.0.2

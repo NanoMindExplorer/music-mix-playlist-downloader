@@ -195,7 +195,7 @@ def process_transliteration(lrc_path: str, transliterate_mode: str) -> None:
     """
     if not os.path.exists(lrc_path):
         return
-    if transliterate_mode.startswith("❌ 1"):
+    if transliterate_mode.startswith("❌"):
         return
 
     try:
@@ -254,9 +254,13 @@ def process_transliteration(lrc_path: str, transliterate_mode: str) -> None:
                     Romanizer = _get_korean()
                     new_text = Romanizer(text).romanize()
                     return f"{time_tags}{new_text}\n"
+                elif lang == "yue":
+                    import ToJyutping
+                    new_text = ToJyutping.get_jyutping_text(text)
+                    return f"{time_tags}{new_text}\n"
                 elif lang == "th":
-                    anyascii = _get_anyascii()
-                    new_text = anyascii(text)
+                    from pythainlp.transliterate import romanize
+                    new_text = romanize(text, engine="royin")
                     return f"{time_tags}{new_text}\n"
             except Exception as e:
                 _log.warning("Transliterator error: %s", e)
@@ -264,7 +268,7 @@ def process_transliteration(lrc_path: str, transliterate_mode: str) -> None:
 
         new_lines = []
         target_lang = "auto"
-        if transliterate_mode.startswith("🤖 4"):
+        if transliterate_mode.startswith("🤖"):
             for line in lines:
                 text = re.sub(r"\[.*?\]", "", line).strip()
                 if not text:
@@ -276,10 +280,12 @@ def process_transliteration(lrc_path: str, transliterate_mode: str) -> None:
                 else:
                     new_lines.append(_trans_line(line, lang))
         else:
-            if transliterate_mode.startswith("🇯🇵 2"):
+            if transliterate_mode.startswith("🇯🇵"):
                 target_lang = "ja"
-            elif transliterate_mode.startswith("🇨🇳 3"):
+            elif transliterate_mode.startswith("🇨🇳"):
                 target_lang = "zh"
+            elif "Kanton" in transliterate_mode or transliterate_mode.startswith("🇭🇰"):
+                target_lang = "yue"
             else:
                 target_lang = "latin"
             
@@ -566,7 +572,7 @@ def fetch_synced_lyrics(
             from mmpd.types import TrackInfo
 
             track = TrackInfo(title=clean_title)
-            chain = build_default_chain()
+            chain = build_default_chain(clean_title)
             result = chain.search(track)
             if result and result.best_lyrics:
                 lrc_text = result.best_lyrics
@@ -608,7 +614,7 @@ def fetch_synced_lyrics(
                         from mmpd.lyrics_providers import build_default_chain
                         from mmpd.types import TrackInfo
                         track_info = TrackInfo(title=track_name, artist=artist_name)
-                        result2 = build_default_chain().search(track_info)
+                        result2 = build_default_chain(clean_title).search(track_info)
                         if result2 and result2.best_lyrics:
                             lrc_text = result2.best_lyrics
                     except ImportError:

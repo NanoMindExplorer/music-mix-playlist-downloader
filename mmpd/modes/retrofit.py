@@ -333,10 +333,25 @@ def _process_cover_art_for_audio(
         glob.glob(os.path.join(dir_path, f"temp_meta_{title}*.webp"))
         + glob.glob(os.path.join(dir_path, f"temp_meta_{title}*.jpg"))
     )
-    if not temp_cover_glob:
+    from mmpd.cover_providers import download_cover_art
+    from mmpd.utils.ffmpeg import crop_cover_to_square
+    
+    temp_api_cover = os.path.join(dir_path, f"api_cover_{title}.jpg")
+    cover_path = None
+    
+    if download_cover_art(title, "", temp_api_cover):
+        cover_path = temp_api_cover
+    elif temp_cover_glob:
+        yt_cover = temp_cover_glob[0]
+        temp_crop_cover = os.path.join(dir_path, f"cropped_{title}.jpg")
+        if crop_cover_to_square(yt_cover, temp_crop_cover):
+            cover_path = temp_crop_cover
+        else:
+            cover_path = yt_cover
+            
+    if not cover_path:
         return
 
-    cover_path = temp_cover_glob[0]
     temp_audio = os.path.join(dir_path, f"temp_{filename}")
     progress.update(main_task, description=f"[magenta]Menyuntikkan Cover: [bold white]{title[:20]}...")
 
