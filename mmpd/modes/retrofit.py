@@ -215,8 +215,10 @@ def _process_single_audio(
         lyrics_from_youtube_cc=lyrics_mode.startswith("📺 3"),
     )
 
-    # Cari metadata YouTube
-    search_query = f"ytsearch1:{title}"
+    # Cari metadata YouTube (untuk Cover Art) dengan membersihkan judul lagu
+    from mmpd.utils.matching import clean_search_query
+    clean_title_for_yt = clean_search_query(title) or title
+    search_query = f"ytsearch1:{clean_title_for_yt} official audio"
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([search_query])

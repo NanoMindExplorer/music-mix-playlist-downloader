@@ -20,7 +20,12 @@ from typing import Optional
 
 # Regex pre-compiled untuk performance
 _BRACKET_RE = re.compile(r"\[.*?\]|\(.*?\)|【.*?】")
-_PROMO_RE = re.compile(r"(?i)\b(official|music video|mv|lyric|video|audio|cover|hd|hq|4k|explicit|clean)\b")
+_PROMO_RE = re.compile(
+    r"(?i)\b("
+    r"official|music video|mv|lyrics?|video|audio|cover|hd|hq|4k|explicit|clean|"
+    r"lirik( lagu)?|terbaru|resmi|karaoke|full album|live( performance)?"
+    r")\b"
+)
 _MULTI_SPACE_RE = re.compile(r"\s+")
 
 
