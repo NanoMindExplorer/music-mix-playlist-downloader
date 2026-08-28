@@ -440,18 +440,16 @@ def _write_bilingual_lrc(lrc_path, lines, texts_to_translate, translated_texts):
                 timestamp = match.group(1)
                 original_text = line[len(timestamp):].rstrip("\n")
                 
-                # Penalaran Maksimal (Update):
-                # Karena membalik urutan (Terjemahan di atas, Asli di bawah) terlihat aneh secara visual,
-                # dan kita tidak bisa menggunakan tag HTML (<br>, <small>, dll) karena tidak dirender oleh player,
-                # SOLUSI TERBAIK adalah MENGGABUNGKAN keduanya menjadi 1 baris secara sistem!
-                # 
-                # Kita gabungkan dengan format: [Lirik Asli] + [Spasi Lebar] + [(Terjemahan)]
-                # Efek yang terjadi pada mesin player:
-                # 1. Sistem membacanya sebagai 1 kesatuan baris, sehingga PASTI disorot bersamaan.
-                # 2. Lirik asli berada di depan, sehingga ia yang menjadi fokus utama.
-                # 3. Di layar HP yang sempit, spasi tambahan akan "mendorong" terjemahan ke bawah (word-wrap),
-                #    sehingga secara visual terlihat seperti 2 baris (lirik asli di atas, terjemahan di bawah)!
-                combined_line = f'{timestamp}{original_text}     ({t_text})'
+                # Penalaran Maksimal (Update Komprehensif):
+                # Trik spasi lebar (word-wrap) ternyata membuat beberapa pemutar musik gagal menggulir lirik (not scrolling)
+                # karena baris dianggap terlalu panjang atau tidak valid.
+                # Solusi paling ROBUST (anti-gagal) dan dijamin kompatibel dengan semua pemutar musik 
+                # adalah menggabungkannya dalam 1 baris standar dengan pemisah tegas (garis miring / bullet).
+                # Dengan ini:
+                # 1. Lirik pasti digulir (scrolling normal).
+                # 2. Lirik asli dan terjemahan disorot bersamaan.
+                # 3. Lirik asli tetap berada di depan (prioritas).
+                combined_line = f'{timestamp}{original_text}  /  {t_text}'
                 output.append(combined_line)
             else:
                 output.append(line.rstrip("\n"))

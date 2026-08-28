@@ -234,8 +234,8 @@ class TestProcessTranslation:
             process_translation(str(lrc), True)
 
         content = lrc.read_text(encoding="utf-8")
-        # Original line and translation combined into one line with spaces
-        assert "[00:00.00]Hello world     (Halo dunia)" in content
+        # Original line and translation combined into one line with slash separator
+        assert "[00:00.00]Hello world  /  Halo dunia" in content
 
     def test_translation_fallback_to_mymemory(self, tmp_path):
         """Test fallback ke MyMemory kalau Google error."""

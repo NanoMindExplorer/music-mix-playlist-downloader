@@ -138,12 +138,11 @@ def build_ytsearch_query(track_query: str, limit: int = 1) -> str:
     clean = clean_search_query(track_query)
     if not clean:
         clean = track_query.strip()
-    # Jangan gunakan keyword pengecualian (-instrumental dll) karena
-    # algoritma pencarian YouTube modern malah sering kali menganggapnya
-    # sebagai kata kunci pencarian yang diinginkan.
-    # Cukup gunakan judul bersih + artist (dan bisa ditambah "official audio"
-    # untuk lebih memastikan hasil dengan vokal).
-    clean = f'{clean} "audio" OR "official"'
+    # Menggunakan operator OR ('"audio" OR "official"') sering membingungkan YouTube 
+    # dan malah memicu algoritma YouTube untuk mengembalikan versi Instrumental/Karaoke.
+    # Solusi paling konsisten agar ADA SUARA PENYANYINYA adalah dengan 
+    # menambahkan kata kunci "official audio" secara langsung.
+    clean = f'{clean} official audio'
     return f"ytsearch{limit}:{clean}"
 
 
