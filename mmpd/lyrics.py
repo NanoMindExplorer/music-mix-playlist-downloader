@@ -370,7 +370,7 @@ def process_translation(lrc_path: str, translate_mode: bool) -> None:
             non_empty_count = sum(1 for t in texts_to_translate if t.strip())
 
             if cache_hit_count == non_empty_count and non_empty_count > 0:
-                _log.info("Translation: 100% cache hit (%d baris) untuk %s",
+                _log.info("Translation: 100%% cache hit (%d baris) untuk %s",
                           cache_hit_count, os.path.basename(lrc_path))
                 translated_texts = [
                     cached_translations[i] if cached_translations[i] is not None else " "
