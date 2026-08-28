@@ -502,7 +502,8 @@ def fetch_synced_lyrics(
         if override_query:
             clean_title = override_query.strip()
         else:
-            clean_title = re.sub(r"\[.*?\]|\(.*?\)|【.*?】", "", title).strip()
+            from mmpd.utils.matching import clean_search_query
+            clean_title = clean_search_query(title)
 
         # === Strategi 1: LyricsChain (LRCLIB → syncedlyrics) ===
         lrc_text: Optional[str] = None
