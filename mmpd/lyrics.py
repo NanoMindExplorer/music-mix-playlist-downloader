@@ -433,15 +433,27 @@ def _write_bilingual_lrc(lrc_path, lines, texts_to_translate, translated_texts):
 
     output = []
     for i, line in enumerate(lines):
-        output.append(line.rstrip("\n"))
         t_text = translated_texts[i].strip() if translated_texts[i] else ""
         if t_text and t_text.lower() != texts_to_translate[i].strip().lower():
             match = re.match(r"(\[.*?\])", line)
             if match:
                 timestamp = match.group(1)
-                # Fix B4 (Fase 1): pakai dua baris timestamp identik
-                # (standar LRC bilingual) - bukan format parenthetical
-                output.append(f"{timestamp}{t_text}")
+                original_text = line[len(timestamp):].rstrip("\n")
+                
+                # Trik untuk Player Musik:
+                # Banyak player (seperti Musicolet/Poweramp) menyorot baris TERAKHIR yang
+                # memiliki timestamp yang sama. Agar lirik ASLI yang disorot (bukan terjemahan),
+                # kita letakkan terjemahan lebih dulu, lalu lirik asli di bawahnya.
+                
+                # Terjemahan: warna cyan (#00FFFF) dan ukuran kecil (<small>)
+                output.append(f'{timestamp}<font color="#00FFFF"><small>{t_text}</small></font>')
+                
+                # Lirik Asli: warna putih (#FFFFFF) atau default, diletakkan terakhir agar disorot
+                output.append(f'{timestamp}<font color="#FFFFFF">{original_text}</font>')
+            else:
+                output.append(line.rstrip("\n"))
+        else:
+            output.append(line.rstrip("\n"))
 
     # Fix R2: gunakan atomic_write_text agar file LRC tidak korup jika
     # proses terputus di tengah penulisan terjemahan bilingual.
