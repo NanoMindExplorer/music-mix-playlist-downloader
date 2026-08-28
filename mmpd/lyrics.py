@@ -440,19 +440,18 @@ def _write_bilingual_lrc(lrc_path, lines, texts_to_translate, translated_texts):
                 timestamp = match.group(1)
                 original_text = line[len(timestamp):].rstrip("\n")
                 
-                # Penalaran Maksimal untuk UI Modern:
-                # Agar lirik asli tetap di ATAS dan terjemahan di BAWAH, namun
-                # player musik tidak menggeser highlight ke terjemahan saja,
-                # kita harus menggabungkan keduanya menjadi SATU baris LRC.
-                # Kita menggunakan tag HTML <br> untuk membuat baris baru secara visual,
-                # sehingga player menyorot seluruh blok ini bersamaan.
-                
-                combined_line = (
-                    f'{timestamp}'
-                    f'<font color="#FFFFFF">{original_text}</font>'
-                    f'<br>'
-                    f'<font color="#00FFFF"><small>{t_text}</small></font>'
-                )
+                # Penalaran Maksimal (Update):
+                # Karena membalik urutan (Terjemahan di atas, Asli di bawah) terlihat aneh secara visual,
+                # dan kita tidak bisa menggunakan tag HTML (<br>, <small>, dll) karena tidak dirender oleh player,
+                # SOLUSI TERBAIK adalah MENGGABUNGKAN keduanya menjadi 1 baris secara sistem!
+                # 
+                # Kita gabungkan dengan format: [Lirik Asli] + [Spasi Lebar] + [(Terjemahan)]
+                # Efek yang terjadi pada mesin player:
+                # 1. Sistem membacanya sebagai 1 kesatuan baris, sehingga PASTI disorot bersamaan.
+                # 2. Lirik asli berada di depan, sehingga ia yang menjadi fokus utama.
+                # 3. Di layar HP yang sempit, spasi tambahan akan "mendorong" terjemahan ke bawah (word-wrap),
+                #    sehingga secara visual terlihat seperti 2 baris (lirik asli di atas, terjemahan di bawah)!
+                combined_line = f'{timestamp}{original_text}     ({t_text})'
                 output.append(combined_line)
             else:
                 output.append(line.rstrip("\n"))
