@@ -483,43 +483,80 @@ def _translate_via_api(texts_to_translate):
 
 def _write_bilingual_lrc(lrc_path, lines, texts_to_translate, translated_texts):
     """
-    Tulis file LRC bilingual dengan format standar industri:
-        [00:01.23] original text
-        [00:01.23] terjemahan
+    Tulis file LRC bilingual dengan format standar industri atau gabungan.
+    Konfigurasi format via ENV `MMPD_BILINGUAL_FORMAT` (gabung, pisah, id_only).
     """
-    # Pastikan jumlah array cocok (MyMemory kadang potong baris kosong)
+    import os
+    format_mode = os.environ.get("MMPD_BILINGUAL_FORMAT", "gabung")
+
     if len(translated_texts) < len(lines):
         translated_texts.extend([""] * (len(lines) - len(translated_texts)))
 
+    def _parse_ts(ts_str):
+        # ts_str is like "[00:01.23]"
+        m = re.match(r"\[(\d+):(\d+\.\d+)\]", ts_str)
+        if not m: return None
+        return int(m.group(1)) * 60 + float(m.group(2))
+
+    def _format_ts(seconds):
+        mins = int(seconds // 60)
+        secs = seconds % 60
+        return f"[{mins:02d}:{secs:05.2f}]"
+
+    # Pre-parse timestamps untuk micro-offset
+    parsed_lines = []
+    for line in lines:
+        match = re.match(r"(\[\d+:\d+\.\d+\])", line)
+        ts_val = _parse_ts(match.group(1)) if match else None
+        parsed_lines.append((line, match.group(1) if match else None, ts_val))
+
     output = []
-    for i, line in enumerate(lines):
+    output_id = []
+    
+    for i, (line, ts_str, ts_val) in enumerate(parsed_lines):
         t_text = translated_texts[i].strip() if translated_texts[i] else ""
-        if t_text and t_text.lower() != texts_to_translate[i].strip().lower():
-            match = re.match(r"(\[.*?\])", line)
-            if match:
-                timestamp = match.group(1)
-                original_text = line[len(timestamp):].rstrip("\n")
+        
+        if t_text and t_text.lower() != texts_to_translate[i].strip().lower() and ts_str and ts_val is not None:
+            original_text = line[len(ts_str):].rstrip("\n")
+            
+            if format_mode == "pisah":
+                # Cari next_ts
+                next_ts = None
+                for j in range(i + 1, len(parsed_lines)):
+                    if parsed_lines[j][2] is not None:
+                        next_ts = parsed_lines[j][2]
+                        break
                 
-                # Penalaran Maksimal (Update Komprehensif):
-                # Trik spasi lebar (word-wrap) ternyata membuat beberapa pemutar musik gagal menggulir lirik (not scrolling)
-                # karena baris dianggap terlalu panjang atau tidak valid.
-                # Solusi paling ROBUST (anti-gagal) dan dijamin kompatibel dengan semua pemutar musik 
-                # adalah menggabungkannya dalam 1 baris standar dengan pemisah tegas (garis miring / bullet).
-                # Dengan ini:
-                # 1. Lirik pasti digulir (scrolling normal).
-                # 2. Lirik asli dan terjemahan disorot bersamaan.
-                # 3. Lirik asli tetap berada di depan (prioritas).
-                combined_line = f'{timestamp}{original_text}  /  {t_text}'
-                output.append(combined_line)
-            else:
+                # Offset logic
+                DEFAULT_OFFSET = 0.6
+                if next_ts is None:
+                    new_ts_val = ts_val + DEFAULT_OFFSET
+                else:
+                    gap = next_ts - ts_val
+                    new_ts_val = ts_val + min(DEFAULT_OFFSET, gap * 0.4)
+                
+                new_ts_str = _format_ts(new_ts_val)
+                
                 output.append(line.rstrip("\n"))
+                output.append(f'{new_ts_str}{t_text}')
+            elif format_mode == "id_only":
+                output.append(line.rstrip("\n"))
+                output_id.append(f'{ts_str}{t_text}')
+            else:
+                # Default: gabung
+                combined_line = f'{ts_str}{original_text}  /  {t_text}'
+                output.append(combined_line)
         else:
             output.append(line.rstrip("\n"))
+            if format_mode == "id_only" and ts_str:
+                output_id.append(line.rstrip("\n"))
 
-    # Fix R2: gunakan atomic_write_text agar file LRC tidak korup jika
-    # proses terputus di tengah penulisan terjemahan bilingual.
+    if format_mode == "id_only":
+        id_path = lrc_path.replace(".lrc", ".id.lrc")
+        atomic_write_text(id_path, "\n".join(output_id))
+    
     atomic_write_text(lrc_path, "\n".join(output))
-    _log.info("Translation OK: %s", os.path.basename(lrc_path))
+    _log.info("Translation OK: %s (mode=%s)", os.path.basename(lrc_path), format_mode)
 
 
 

@@ -96,6 +96,16 @@ def run_retrofit() -> None:
             "🌐 Terjemahkan Lirik ke Bahasa Indonesia (Otomatis ditambahkan di bawah teks asli)?",
             default=False,
         )
+        if translate_id:
+            format_choices = {
+                "🔤 1. Gabung 1 baris (Teraman, Default)": "gabung",
+                "⏱️ 2. Pisah 2 baris (Micro-offset) - Terbaik untuk Poweramp": "pisah",
+                "📁 3. File terpisah (.id.lrc)": "id_only"
+            }
+            selected_fmt = ask_select("Pilih Format Lirik Bilingual:", list(format_choices.keys()))
+            if selected_fmt:
+                import os
+                os.environ["MMPD_BILINGUAL_FORMAT"] = format_choices[selected_fmt]
 
     # === Langkah 0: Bersihkan & rename file LRC lama ===
     fixed_lrc_count = _cleanup_old_lrc_files(target_folder, transliterate, sync_huawei)
