@@ -241,8 +241,14 @@ def _process_single_audio(
         _log.warning("Gagal ambil metadata YouTube untuk '%s...': %s", title[:30], e)
 
     # Hapus lirik lama jika diminta
-    if force_overwrite_lrc and os.path.exists(lrc_path):
-        os.remove(lrc_path)
+    if force_overwrite_lrc:
+        if os.path.exists(lrc_path):
+            os.remove(lrc_path)
+        huawei_lrc_path = os.path.join(
+            str(Path.home()), "storage", "shared", "Music", "Musiclrc", f"{title}.lrc"
+        )
+        if os.path.exists(huawei_lrc_path):
+            os.remove(huawei_lrc_path)
 
     # === BLOK 1: Pemrosesan Lirik ===
     if not target_mode.startswith("🖼️ 3"):
@@ -297,22 +303,23 @@ def _process_lyrics_for_audio(
     huawei_lrc_path = os.path.join(
         str(Path.home()), "storage", "shared", "Music", "Musiclrc", f"{title}.lrc"
     )
-    if (
-        lyrics_mode.startswith("🎧 1") or lyrics_mode.startswith("✍️ 2")
-    ) and not os.path.exists(lrc_path) and not (sync_huawei and os.path.exists(huawei_lrc_path)):
-        query = None
-        if lyrics_mode.startswith("✍️ 2"):
-            progress.stop()
-            query = ask_text(f"📝 Masukkan judul Spotify untuk '{title}':")
-            progress.start()
-        fetch_synced_lyrics(
-            title=title,
-            lrc_path=lrc_path,
-            sync_huawei=sync_huawei,
-            transliterate_mode=transliterate,
-            override_query=query,
-            translate_mode=translate_id,
-        )
+    if (lyrics_mode.startswith("🎧 1") or lyrics_mode.startswith("✍️ 2")) and not os.path.exists(lrc_path):
+        if sync_huawei and os.path.exists(huawei_lrc_path):
+            shutil.copy2(huawei_lrc_path, lrc_path)
+        else:
+            query = None
+            if lyrics_mode.startswith("✍️ 2"):
+                progress.stop()
+                query = ask_text(f"📝 Masukkan judul Spotify untuk '{title}':")
+                progress.start()
+            fetch_synced_lyrics(
+                title=title,
+                lrc_path=lrc_path,
+                sync_huawei=sync_huawei,
+                transliterate_mode=transliterate,
+                override_query=query,
+                translate_mode=translate_id,
+            )
     elif os.path.exists(lrc_path):
         # Lirik sudah ada (dari YT atau sebelumnya) — apply post-processing
         process_transliteration(lrc_path, transliterate)
@@ -323,9 +330,11 @@ def _process_lyrics_for_audio(
     # Peringatan jika lirik tidak ditemukan
     if not os.path.exists(lrc_path):
         progress.stop()
-        console.print(
-            f"[bold yellow]⚠️ Lirik dilewati: Video YouTube tidak memiliki CC untuk {title[:30]}...[/bold yellow]"
-        )
+        if lyrics_mode.startswith("📺 3"):
+            msg = f"[bold yellow]⚠️ Lirik dilewati: Video YouTube tidak memiliki CC untuk {title[:30]}...[/bold yellow]"
+        else:
+            msg = f"[bold yellow]⚠️ Lirik dilewati: Tidak ditemukan di database lirik untuk {title[:30]}...[/bold yellow]"
+        console.print(msg)
         progress.start()
 
 
