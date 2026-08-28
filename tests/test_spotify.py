@@ -77,14 +77,14 @@ class TestBuildYtsearchQuery:
         from mmpd.spotify import build_ytsearch_query
         result = build_ytsearch_query("Adele Hello", limit=1)
         assert result.startswith("ytsearch1:Adele Hello")
-        assert '"audio" OR "official"' in result
+        assert 'official audio' in result
 
     def test_query_with_limit_3(self):
         """Test query dengan limit 3."""
         from mmpd.spotify import build_ytsearch_query
         result = build_ytsearch_query("Test Song", limit=3)
         assert result.startswith("ytsearch3:Test Song")
-        assert '"audio" OR "official"' in result
+        assert 'official audio' in result
 
     def test_query_clean_brackets(self):
         """Test query dengan bracket dibersihkan."""
