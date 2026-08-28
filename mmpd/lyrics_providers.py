@@ -331,13 +331,30 @@ class SyncedLyricsProvider:
         log.debug("syncedlyrics search: query='%s'", clean_query)
 
         try:
-            lrc_text = self._search_fn(clean_query, providers=["NetEase", "Megalobiz"])
+            # Musixmatch dulu (pilihan user "Mesin Spotify/Musixmatch"),
+            # NetEase/Megalobiz sering timeout di Termux.
+            lrc_text = None
+            for providers in (
+                ["Musixmatch"],
+                ["NetEase"],
+                ["Megalobiz"],
+            ):
+                try:
+                    lrc_text = self._search_fn(clean_query, providers=providers)
+                except Exception as e:
+                    log.warning("syncedlyrics %s gagal: %s", providers, e)
+                    lrc_text = None
+                if lrc_text:
+                    break
             if not lrc_text:
-                # Fallback: coba raw query
                 raw_query = track.search_query()
                 if raw_query != clean_query:
                     log.debug("syncedlyrics retry with raw query: '%s'", raw_query)
-                    lrc_text = self._search_fn(raw_query, providers=["NetEase", "Megalobiz"])
+                    try:
+                        lrc_text = self._search_fn(raw_query)
+                    except Exception as e:
+                        log.warning("syncedlyrics raw query gagal: %s", e)
+                        lrc_text = None
 
             if not lrc_text:
                 log.debug("syncedlyrics: no match for '%s'", track.title)
@@ -464,8 +481,10 @@ class LyricsChain:
 
 
 def build_default_chain(title: str = "") -> LyricsChain:
-    from mmpd.lyrics import detect_script
-    script = detect_script(title) if title else "latin"
-    if script in ("ja", "zh", "ko", "th"):
-        return LyricsChain([SyncedLyricsProvider(), MusixmatchProvider(), LrclibProvider()])
-    return LyricsChain([LrclibProvider(), MusixmatchProvider(), SyncedLyricsProvider()])
+    """
+    Urutan provider tahan timeout:
+        1. Musixmatch native (paling cocok lagu Asia + pilihan UI "Spotify/Musixmatch")
+        2. LRCLIB (gratis, jarang timeout)
+        3. syncedlyrics (NetEase/Megalobiz) sebagai fallback terakhir
+    """
+    return LyricsChain([MusixmatchProvider(), LrclibProvider(), SyncedLyricsProvider()])

@@ -108,7 +108,7 @@ def run_retrofit() -> None:
                 os.environ["MMPD_BILINGUAL_FORMAT"] = format_choices[selected_fmt]
 
     # === Langkah 0: Bersihkan & rename file LRC lama ===
-    fixed_lrc_count = _cleanup_old_lrc_files(target_folder, transliterate, sync_huawei)
+    fixed_lrc_count = _cleanup_old_lrc_files(target_folder, transliterate, sync_huawei, translate_id)
 
     # Bersihkan file sampah sisa timeout sebelumnya
     cleanup_temp_files(target_folder, prefix="temp_meta_")
@@ -169,7 +169,7 @@ def run_retrofit() -> None:
         progress.update(main_task, description="[bold green]✨ Proses Retrofit Selesai!", completed=len(audio_files))
 
 
-def _cleanup_old_lrc_files(target_folder: str, transliterate: str, sync_huawei: bool) -> int:
+def _cleanup_old_lrc_files(target_folder: str, transliterate: str, sync_huawei: bool, translate_id: bool = False) -> int:
     """Rename file LRC dengan suffix bahasa (mis. song.ja.lrc) ke nama bersih, apply translit & sync."""
     fixed_count = 0
     for lrc_file in glob.glob(os.path.join(target_folder, "**", "*.lrc"), recursive=True):
@@ -185,12 +185,14 @@ def _cleanup_old_lrc_files(target_folder: str, transliterate: str, sync_huawei: 
                 os.remove(new_path)
             shutil.move(lrc_file, new_path)
             process_transliteration(new_path, transliterate)
+            process_translation(new_path, translate_id)
             if sync_huawei:
                 sync_huawei_lrc(new_path)
             fixed_count += 1
         else:
-            # Sudah benar, apply transliterasi + sync saja
+            # Sudah benar — apply transliterasi + terjemahan jika belum bilingual
             process_transliteration(lrc_file, transliterate)
+            process_translation(lrc_file, translate_id)
             if sync_huawei:
                 sync_huawei_lrc(lrc_file)
     return fixed_count
@@ -240,15 +242,23 @@ def _process_single_audio(
     except Exception as e:
         _log.warning("Gagal ambil metadata YouTube untuk '%s...': %s", title[:30], e)
 
-    # Hapus lirik lama jika diminta
+    # Backup lirik lama sebelum overwrite. Kalau fetch gagal, file asli
+    # (yang sudah latin) dikembalikan lalu hanya disuntik terjemahan.
+    backup_lrc = lrc_path + ".bak"
     if force_overwrite_lrc:
         if os.path.exists(lrc_path):
+            try:
+                shutil.copy2(lrc_path, backup_lrc)
+            except Exception as e:
+                _log.warning("Gagal backup LRC %s: %s", title[:30], e)
             os.remove(lrc_path)
         huawei_lrc_path = os.path.join(
             str(Path.home()), "storage", "shared", "Music", "Musiclrc", f"{title}.lrc"
         )
         if os.path.exists(huawei_lrc_path):
             os.remove(huawei_lrc_path)
+    else:
+        backup_lrc = ""
 
     # === BLOK 1: Pemrosesan Lirik ===
     if not target_mode.startswith("🖼️ 3"):
@@ -262,6 +272,7 @@ def _process_single_audio(
             transliterate=transliterate,
             translate_id=translate_id,
             sync_huawei=sync_huawei,
+            backup_lrc=backup_lrc,
         )
 
     # === BLOK 2: Pemrosesan Cover Art ===
@@ -290,6 +301,7 @@ def _process_lyrics_for_audio(
     transliterate: str,
     translate_id: bool,
     sync_huawei: bool,
+    backup_lrc: str = "",
 ) -> None:
     """Tangani pencarian & penulisan lirik untuk satu audio."""
     # Tangani lirik hasil unduhan YouTube (jika Mode 3)
@@ -321,11 +333,27 @@ def _process_lyrics_for_audio(
                 translate_mode=translate_id,
             )
     elif os.path.exists(lrc_path):
-        # Lirik sudah ada (dari YT atau sebelumnya) — apply post-processing
+        # Lirik sudah ada. Jika sudah latin, coba ambil aksara asli
+        # HANYA sebagai sumber terjemahan (file tampilan tidak ditimpa).
+        source_lines = _peek_original_source_lines(title, lrc_path) if translate_id else None
+        process_transliteration(lrc_path, transliterate)
+        process_translation(lrc_path, translate_id, source_lines=source_lines)
+        if sync_huawei:
+            sync_huawei_lrc(lrc_path)
+
+    # Jika fetch gagal tapi ada backup LRC latin, kembalikan lalu suntik terjemahan.
+    if not os.path.exists(lrc_path) and backup_lrc and os.path.exists(backup_lrc):
+        shutil.move(backup_lrc, lrc_path)
+        _log.info("Restore LRC backup (fetch gagal): %s", os.path.basename(lrc_path))
         process_transliteration(lrc_path, transliterate)
         process_translation(lrc_path, translate_id)
         if sync_huawei:
             sync_huawei_lrc(lrc_path)
+    elif backup_lrc and os.path.exists(backup_lrc):
+        try:
+            os.remove(backup_lrc)
+        except OSError:
+            pass
 
     # Peringatan jika lirik tidak ditemukan
     if not os.path.exists(lrc_path):
@@ -336,6 +364,33 @@ def _process_lyrics_for_audio(
             msg = f"[bold yellow]⚠️ Lirik dilewati: Tidak ditemukan di database lirik untuk {title[:30]}...[/bold yellow]"
         console.print(msg)
         progress.start()
+
+
+
+def _peek_original_source_lines(title: str, lrc_path: str):
+    """Ambil lirik aksara asli dari database tanpa menimpa file latin yang sudah ada."""
+    try:
+        with open(lrc_path, "r", encoding="utf-8") as f:
+            current = f.read()
+        from mmpd.lyrics import detect_script
+        if detect_script(current) != "latin":
+            return current.splitlines(keepends=True)
+
+        from mmpd.lyrics_providers import build_default_chain
+        from mmpd.types import TrackInfo
+        from mmpd.utils.matching import clean_search_query
+
+        q = clean_search_query(title) or title
+        result = build_default_chain(q).search(TrackInfo(title=q))
+        if result and result.best_lyrics and detect_script(result.best_lyrics) != "latin":
+            _log.info("Sumber asli didapat untuk terjemahan akurat: %s", title[:40])
+            return [
+                (ln if ln.endswith("\n") else ln + "\n")
+                for ln in result.best_lyrics.splitlines()
+            ]
+    except Exception as e:
+        _log.debug("peek original lyrics gagal untuk %s: %s", title[:30], e)
+    return None
 
 
 def _process_cover_art_for_audio(

@@ -1,5 +1,24 @@
 # Changelog
 
+## [4.0.1] — 2026-08-28
+
+### Fixed
+- **Terjemahan Indonesia hilang / tidak akurat** pada Mode Retrofit:
+  - Pipeline sekarang menerjemahkan dari aksara asli (Hanzi/Kana/Hangul/Thai)
+    *sebelum* file diubah ke Pinyin/Romaji/Latin.
+  - Satu baris gagal di Google Translate tidak lagi membuang seluruh lagu.
+  - Batch bernomor dipakai agar konteks antar-baris tetap utuh.
+- **Overwrite LRC** tidak lagi menghapus file latin yang sudah benar jika
+  pencarian database gagal — file di-backup lalu di-restore, kemudian hanya
+  disuntik terjemahan.
+- **Provider lirik** tidak lagi memaksa NetEase/Megalobiz di depan
+  (sering timeout di Termux). Musixmatch dicoba per-provider.
+
+### Changed
+- `process_translation(..., source_lines=)` menerima snapshot lirik asli.
+- Retrofit cleanup juga menyuntik terjemahan ke file LRC yang sudah ada.
+
+
 Semua perubahan penting di project ini akan didokumentasikan di sini.
 
 Format berdasarkan [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
