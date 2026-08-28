@@ -217,8 +217,13 @@ def _process_single_audio(
 
     # Cari metadata YouTube (untuk Cover Art) dengan membersihkan judul lagu
     from mmpd.utils.matching import clean_search_query
+    is_cover = bool(re.search(r"(?i)\b(cover|翻唱|歌ってみた|커버|คัฟเวอร์)\b", title))
     clean_title_for_yt = clean_search_query(title) or title
-    search_query = f"ytsearch1:{clean_title_for_yt} official audio"
+    
+    if is_cover:
+        search_query = f"ytsearch1:{title}"  # Pakai judul asli agar match dengan cover
+    else:
+        search_query = f"ytsearch1:{clean_title_for_yt} official audio"
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([search_query])

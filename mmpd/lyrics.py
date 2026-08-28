@@ -84,6 +84,18 @@ _LANGUAGE_TRANSLITERATORS = {
 _LATIN_LANGUAGES = {"en", "id", "es", "fr", "de", "it", "nl", "tl", "pt", "ro"}
 
 
+_HIRAGANA_KATAKANA = re.compile(r'[぀-ヿ]')
+_HAN = re.compile(r'[一-鿿]')
+_HANGUL = re.compile(r'[가-힣]')
+_THAI = re.compile(r'[฀-๿]')
+
+def detect_script(text: str) -> str:
+    if _HIRAGANA_KATAKANA.search(text): return "ja"
+    if _HANGUL.search(text): return "ko"
+    if _HAN.search(text): return "zh"
+    if _THAI.search(text): return "th"
+    return "latin"
+
 def _transliterate_japanese(lines: List[str]) -> List[str]:
     """Transliterasi aksara Jepang (Kanji/Hiragana/Katakana) → Romaji (Hepburn)."""
     from pykakasi import kakasi
@@ -97,10 +109,10 @@ def _transliterate_japanese(lines: List[str]) -> List[str]:
         # Logic baru: proses baris yang punya teks non-timestamp.
         text = re.sub(r"\[.*?\]", "", line).strip()
         if text:
-            time_tag = re.match(r"\[.*?\]", line)
+            time_tags = "".join(re.findall(r"\[.*?\]", line))
             conv = k.convert(text)
             new_text = "".join([item["hepburn"] for item in conv])
-            new_lines.append(f"{time_tag.group(0) if time_tag else ''}{new_text}\n")
+            new_lines.append(f"{time_tags}{new_text}\n")
         else:
             new_lines.append(line)
     return new_lines
@@ -115,11 +127,11 @@ def _transliterate_chinese(lines: List[str]) -> List[str]:
         # Fix Fase 3: proses baris yang punya teks non-timestamp
         text = re.sub(r"\[.*?\]", "", line).strip()
         if text:
-            time_tag = re.match(r"\[.*?\]", line)
+            time_tags = "".join(re.findall(r"\[.*?\]", line))
             py_list = pinyin(text, style=Style.NORMAL)
             # Fix B3 (Fase 1): gunakan spasi sebagai pemisah suku kata
             new_text = " ".join([item[0] for item in py_list])
-            new_lines.append(f"{time_tag.group(0) if time_tag else ''}{new_text}\n")
+            new_lines.append(f"{time_tags}{new_text}\n")
         else:
             new_lines.append(line)
     return new_lines
@@ -134,10 +146,10 @@ def _transliterate_korean(lines: List[str]) -> List[str]:
         # Fix Fase 3: proses baris yang punya teks non-timestamp
         text = re.sub(r"\[.*?\]", "", line).strip()
         if text:
-            time_tag = re.match(r"\[.*?\]", line)
+            time_tags = "".join(re.findall(r"\[.*?\]", line))
             try:
                 new_text = Romanizer(text).romanize()
-                new_lines.append(f"{time_tag.group(0) if time_tag else ''}{new_text}\n")
+                new_lines.append(f"{time_tags}{new_text}\n")
             except Exception as e:
                 _log.warning("Romanizer gagal untuk baris (%s). Pakai teks asli.", e)
                 new_lines.append(line)
@@ -155,9 +167,9 @@ def _transliterate_universal(lines: List[str]) -> List[str]:
         # Fix Fase 3: proses baris yang punya teks non-timestamp
         text = re.sub(r"\[.*?\]", "", line).strip()
         if text:
-            time_tag = re.match(r"\[.*?\]", line)
+            time_tags = "".join(re.findall(r"\[.*?\]", line))
             new_text = anyascii(text)
-            new_lines.append(f"{time_tag.group(0) if time_tag else ''}{new_text}\n")
+            new_lines.append(f"{time_tags}{new_text}\n")
         else:
             new_lines.append(line)
     return new_lines
@@ -195,33 +207,84 @@ def process_transliteration(lrc_path: str, transliterate_mode: str) -> None:
         if not pure_text:
             return
 
-        # Tentukan bahasa target
-        target_lang = ""
-        if transliterate_mode.startswith("🤖 4"):
-            import langdetect
+        # Init engines lazily
+        engines = {}
+
+        def _get_kakasi():
+            if "ja" not in engines:
+                from pykakasi import kakasi
+                engines["ja"] = kakasi()
+            return engines["ja"]
+
+        def _get_pinyin():
+            if "zh" not in engines:
+                from pypinyin import pinyin, Style
+                engines["zh"] = (pinyin, Style)
+            return engines["zh"]
+
+        def _get_korean():
+            if "ko" not in engines:
+                from korean_romanizer.romanizer import Romanizer
+                engines["ko"] = Romanizer
+            return engines["ko"]
+            
+        def _get_anyascii():
+            if "anyascii" not in engines:
+                from anyascii import anyascii
+                engines["anyascii"] = anyascii
+            return engines["anyascii"]
+
+        def _trans_line(line: str, lang: str) -> str:
+            text = re.sub(r"\[.*?\]", "", line).strip()
+            if not text: return line
+            time_tags = "".join(re.findall(r"\[.*?\]", line))
+            
             try:
-                target_lang = langdetect.detect(pure_text)
-            except Exception:
-                _log.warning("langdetect gagal, skip transliterasi")
-                return
+                if lang == "ja":
+                    k = _get_kakasi()
+                    conv = k.convert(text)
+                    new_text = "".join([item["hepburn"] for item in conv])
+                    return f"{time_tags}{new_text}\n"
+                elif lang in ("zh", "zh-cn", "zh-tw"):
+                    pinyin, Style = _get_pinyin()
+                    py_list = pinyin(text, style=Style.NORMAL)
+                    new_text = " ".join([item[0] for item in py_list])
+                    return f"{time_tags}{new_text}\n"
+                elif lang == "ko":
+                    Romanizer = _get_korean()
+                    new_text = Romanizer(text).romanize()
+                    return f"{time_tags}{new_text}\n"
+                elif lang == "th":
+                    anyascii = _get_anyascii()
+                    new_text = anyascii(text)
+                    return f"{time_tags}{new_text}\n"
+            except Exception as e:
+                _log.warning("Transliterator error: %s", e)
+            return line
 
-            if target_lang in _LATIN_LANGUAGES:
-                _log.debug("Bahasa %s sudah Latin, skip transliterasi", target_lang)
-                return
-        elif transliterate_mode.startswith("🇯🇵 2"):
-            target_lang = "ja"
-        elif transliterate_mode.startswith("🇨🇳 3"):
-            target_lang = "zh-cn"
-
-        # Pilih transliterator sesuai bahasa
-        if target_lang == "ja":
-            new_lines = _transliterate_japanese(lines)
-        elif target_lang in ("zh-cn", "zh-tw"):
-            new_lines = _transliterate_chinese(lines)
-        elif target_lang == "ko":
-            new_lines = _transliterate_korean(lines)
+        new_lines = []
+        target_lang = "auto"
+        if transliterate_mode.startswith("🤖 4"):
+            for line in lines:
+                text = re.sub(r"\[.*?\]", "", line).strip()
+                if not text:
+                    new_lines.append(line)
+                    continue
+                lang = detect_script(text)
+                if lang == "latin":
+                    new_lines.append(line)
+                else:
+                    new_lines.append(_trans_line(line, lang))
         else:
-            new_lines = _transliterate_universal(lines)
+            if transliterate_mode.startswith("🇯🇵 2"):
+                target_lang = "ja"
+            elif transliterate_mode.startswith("🇨🇳 3"):
+                target_lang = "zh"
+            else:
+                target_lang = "latin"
+            
+            for line in lines:
+                new_lines.append(_trans_line(line, target_lang))
 
         # Tulis hasil secara atomik
         atomic_write_text(lrc_path, "".join(new_lines))
@@ -362,60 +425,51 @@ def process_translation(lrc_path: str, translate_mode: bool) -> None:
 def _translate_via_api(texts_to_translate):
     """
     Translate list of texts via Google Translate (fallback MyMemory).
-    Dipisah ke function terpisah untuk readability + testability (Fase 4).
+    Menggunakan translasi per-baris secara konruen untuk menjamin alignment 1:1.
     """
     from deep_translator import GoogleTranslator, MyMemoryTranslator
-    import langdetect
+    import concurrent.futures
 
-    translated_texts = []
-
-    # === Strategi 1: Google Translate (batch, cepat) ===
+    translated_texts = [""] * len(texts_to_translate)
+    
+    # === Strategi 1: Google Translate (concurrency per baris) ===
     try:
         translator = GoogleTranslator(source="auto", target="id")
-        combined_text = "\n".join(texts_to_translate)
-        res = translator.translate(combined_text)
-        if not res or "Error 500" in res:
-            raise Exception("Google Translate Web API Error 500")
-        translated_texts = res.split("\n")
+        
+        def _trans_google(idx, text):
+            if not text.strip(): return idx, " "
+            res = translator.translate(text)
+            if not res or "Error 500" in res:
+                raise Exception("API Error")
+            return idx, res
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            futures = [executor.submit(_trans_google, i, t) for i, t in enumerate(texts_to_translate)]
+            for f in concurrent.futures.as_completed(futures):
+                idx, res = f.result()
+                translated_texts[idx] = res
         return translated_texts
     except Exception as e:
         _log.warning("Google Translate gagal (%s). Beralih ke MyMemory...", e)
 
-        # === Strategi 2: MyMemory (chunked, lebih lambat tapi reliable) ===
-        pure_text = " ".join([t for t in texts_to_translate if t.strip()])
-        if not pure_text:
-            return [" "] * len(texts_to_translate)
-
+        # === Strategi 2: MyMemory (lebih lambat tapi reliable) ===
         try:
-            lang = langdetect.detect(pure_text)
-        except Exception:
-            lang = "en"
+            translator_mm = MyMemoryTranslator(source="auto", target="id")
+            def _trans_mm(idx, text):
+                if not text.strip(): return idx, " "
+                res = translator_mm.translate(text)
+                if not res: return idx, " "
+                if "MYMEMORY WARNING" in res:
+                    raise Exception("MyMemory Rate Limit")
+                return idx, res
 
-        source_lang = _LANG_MAP_MMYMEMORY.get(lang, f"{lang}-{lang.upper()}")
-
-        try:
-            # MyMemory limit 500 karakter per request
-            mm = MyMemoryTranslator(source=source_lang, target="id-ID")
-            current_chunk = []
-            current_len = 0
-            for text in texts_to_translate:
-                if current_len + len(text) + 1 > 450:
-                    combined = "\n".join(current_chunk)
-                    res = mm.translate(combined)
-                    translated_texts.extend(res.split("\n"))
-                    current_chunk = [text]
-                    current_len = len(text)
-                    time.sleep(1)  # Hindari rate limit MyMemory
-                else:
-                    current_chunk.append(text)
-                    current_len += len(text) + 1
-
-            if current_chunk:
-                combined = "\n".join(current_chunk)
-                res = mm.translate(combined)
-                translated_texts.extend(res.split("\n"))
-
-            return translated_texts
+            translated_texts_mm = [""] * len(texts_to_translate)
+            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+                futures = [executor.submit(_trans_mm, i, t) for i, t in enumerate(texts_to_translate)]
+                for f in concurrent.futures.as_completed(futures):
+                    idx, res = f.result()
+                    translated_texts_mm[idx] = res
+            return translated_texts_mm
         except Exception as e2:
             _log.warning("Semua mesin terjemahan gagal: %s", e2)
             return [" "] * len(texts_to_translate)
