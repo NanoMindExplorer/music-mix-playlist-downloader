@@ -19,11 +19,12 @@ import re
 from typing import Optional
 
 # Regex pre-compiled untuk performance
-_BRACKET_RE = re.compile(r"\[.*?\]|\(.*?\)|【.*?】")
+_BRACKET_RE = re.compile(r"\[.*?\]|\(.*?\)|【.*?】|（.*?）|「.*?」|『.*?』|《.*?》")
 _PROMO_RE = re.compile(
     r"(?i)\b("
     r"official|music video|mv|lyrics?|video|audio|cover|hd|hq|4k|explicit|clean|"
-    r"lirik( lagu)?|terbaru|resmi|karaoke|full album|live( performance)?"
+    r"lirik( lagu)?|terbaru|resmi|karaoke|full album|live( performance)?|"
+    r"歌ってみた|公式|フル|歌詞|官方|翻唱|歌词|完整版|뮤직비디오|커버|가사|공식|เนื้อเพลง|คัฟเวอร์"
     r")\b"
 )
 _MULTI_SPACE_RE = re.compile(r"\s+")
