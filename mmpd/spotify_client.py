@@ -438,10 +438,17 @@ class SpotifyClient:
                 for item in entity["trackList"]:
                     title = item.get("title", "")
                     artist = item.get("subtitle", "")
+                    if not artist and "artists" in item:
+                        artist = ", ".join(a.get("name", "") for a in item["artists"])
                     if title:
                         tracks.append(SpotifyTrack(title=title, artist=artist, spotify_url=item.get("uri", "")))
-            elif "title" in entity and "subtitle" in entity:
-                tracks.append(SpotifyTrack(title=entity["title"], artist=entity.get("subtitle", "")))
+            else:
+                title = entity.get("title") or entity.get("name")
+                if title:
+                    artist = entity.get("subtitle", "")
+                    if not artist and "artists" in entity:
+                        artist = ", ".join(a.get("name", "") for a in entity["artists"])
+                    tracks.append(SpotifyTrack(title=title, artist=artist, spotify_url=entity.get("uri", "")))
             _log.info("Embed scraping: %d tracks ditemukan", len(tracks))
             return tracks
         except Exception as e:

@@ -56,21 +56,18 @@ def parse_spotify_url_safe(url: str) -> List[str]:
     try:
         from mmpd.spotify_client import get_spotify_client
         client = get_spotify_client()
-        if client.is_available:
-            _log.info("Spotify: pakai spotipy (official API)")
-            tracks = client.parse_url(url)
-            if tracks:
-                queries = [t.to_ytsearch_query() for t in tracks]
-                _log.info("Spotify parsed: %d tracks dari %s", len(queries), url[:80])
-                return queries
-            else:
-                if client.last_error:
-                    _log.error("Spotify gagal: %s", client.last_error)
-                else:
-                    _log.warning("Spotify: spotipy return empty (URL invalid atau playlist kosong)")
-                return []
+        
+        _log.info("Spotify: Parsing URL")
+        tracks = client.parse_url(url)
+        if tracks:
+            queries = [t.to_ytsearch_query() for t in tracks]
+            _log.info("Spotify parsed: %d tracks dari %s", len(queries), url[:80])
+            return queries
         else:
-            _log.error("Spotify: spotipy tidak available. Set SPOTIPY_CLIENT_ID dan SPOTIPY_CLIENT_SECRET.")
+            if client.last_error:
+                _log.error("Spotify gagal: %s", client.last_error)
+            else:
+                _log.warning("Spotify: return empty (URL invalid atau playlist kosong)")
             return []
     except Exception as e:
         _log.error("Spotify parse error untuk %s: %s", url[:80], e, exc_info=True)
@@ -102,24 +99,21 @@ def parse_spotify_url_v2(url: str):
     try:
         from mmpd.spotify_client import get_spotify_client, SpotifyTrack
         client = get_spotify_client()
-        if client.is_available:
-            _log.info("Spotify v2: pakai spotipy (official API)")
-            tracks = client.parse_url(url)
-            if tracks:
-                _log.info(
-                    "Spotify v2 parsed: %d tracks, %d with ISRC",
-                    len(tracks),
-                    sum(1 for t in tracks if t.isrc),
-                )
-                return tracks
-            else:
-                if client.last_error:
-                    _log.error("Spotify v2 gagal: %s", client.last_error)
-                else:
-                    _log.warning("Spotify v2: spotipy return empty")
-                return []
+        
+        _log.info("Spotify v2: Parsing URL")
+        tracks = client.parse_url(url)
+        if tracks:
+            _log.info(
+                "Spotify v2 parsed: %d tracks, %d with ISRC",
+                len(tracks),
+                sum(1 for t in tracks if getattr(t, 'isrc', None)),
+            )
+            return tracks
         else:
-            _log.error("Spotify v2: spotipy tidak available. Set SPOTIPY_CLIENT_ID dan SPOTIPY_CLIENT_SECRET.")
+            if client.last_error:
+                _log.error("Spotify v2 gagal: %s", client.last_error)
+            else:
+                _log.warning("Spotify v2: return empty")
             return []
     except Exception as e:
         _log.error("Spotify v2 parse error: %s", e, exc_info=True)
@@ -144,10 +138,12 @@ def build_ytsearch_query(track_query: str, limit: int = 1) -> str:
     clean = clean_search_query(track_query)
     if not clean:
         clean = track_query.strip()
-    # Fix instrumental filter: tambah exclusion keywords
-    # YouTube search mendukung operator "-" untuk exclude
-    # Ini akan mengecualikan video instrumental/karaoke dari hasil search
-    clean = f'{clean} -instrumental -karaoke -"backing track" -"off vocal" -accompaniment -"no vocals"'
+    # Jangan gunakan keyword pengecualian (-instrumental dll) karena
+    # algoritma pencarian YouTube modern malah sering kali menganggapnya
+    # sebagai kata kunci pencarian yang diinginkan.
+    # Cukup gunakan judul bersih + artist (dan bisa ditambah "official audio"
+    # untuk lebih memastikan hasil dengan vokal).
+    clean = f'{clean} "audio" OR "official"'
     return f"ytsearch{limit}:{clean}"
 
 
