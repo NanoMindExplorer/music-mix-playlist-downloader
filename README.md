@@ -161,6 +161,42 @@ Download playlist Spotify dengan 3 worker paralel (ThreadPoolExecutor). Playlist
 
 Playlist 50 lagu re-download dalam 30 hari → **0 API calls** (semua cache hit).
 
+#### Manajemen Cache (Command Line)
+Anda dapat mengelola cache SQLite menggunakan perintah-perintah berikut:
+
+**1. Hapus SEMUA Cache (Translation + Lyrics)**
+```bash
+python3 -c "from mmpd.cache import clear_all_cache; clear_all_cache(); print('✅ Cache dibersihkan')"
+```
+
+**2. Hapus Cache yang Expired Saja (yang sudah >30 hari)**
+```bash
+python3 -c "from mmpd.cache import clear_expired_entries; n=clear_expired_entries(); print(f'✅ {n} entry dihapus')"
+```
+
+**3. Hapus File Database Langsung (paling bersih)**
+```bash
+# Termux:
+rm -f $PREFIX/var/cache/mmpd/cache.db
+
+# Linux:
+rm -f ~/.local/share/mmpd/cache/cache.db
+```
+
+**4. Cek Statistik Cache (sebelum/setelah dihapus)**
+```bash
+python3 -c "from mmpd.cache import get_cache_stats; import json; print(json.dumps(get_cache_stats(), indent=2))"
+```
+*Contoh Output:*
+```json
+{
+  "translation_count": 150,    # jumlah terjemahan di-cache
+  "lyrics_count": 46,         # jumlah lirik di-cache
+  "db_size_bytes": 245760,    # ukuran file cache
+  "db_path": "/data/.../cache.db"
+}
+```
+
 ---
 
 ## 🛡️ Fitur Fundamental
