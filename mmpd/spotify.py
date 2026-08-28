@@ -138,11 +138,8 @@ def build_ytsearch_query(track_query: str, limit: int = 1) -> str:
     clean = clean_search_query(track_query)
     if not clean:
         clean = track_query.strip()
-    # Menggunakan operator OR ('"audio" OR "official"') sering membingungkan YouTube 
-    # dan malah memicu algoritma YouTube untuk mengembalikan versi Instrumental/Karaoke.
-    # Solusi paling konsisten agar ADA SUARA PENYANYINYA adalah dengan 
-    # menambahkan kata kunci "official audio" secara langsung.
-    clean = f'{clean} official audio'
+    # Fix instrumental: Gunakan exclusion filter yt-dlp / youtube
+    clean = f'{clean} -instrumental -karaoke official audio'
     return f"ytsearch{limit}:{clean}"
 
 

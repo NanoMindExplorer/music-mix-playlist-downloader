@@ -184,15 +184,27 @@ def _cleanup_old_lrc_files(target_folder: str, transliterate: str, sync_huawei: 
                     continue
                 os.remove(new_path)
             shutil.move(lrc_file, new_path)
+            orig_lines = None
+            try:
+                with open(new_path, "r", encoding="utf-8") as f:
+                    orig_lines = f.readlines()
+            except Exception:
+                pass
             process_transliteration(new_path, transliterate)
-            process_translation(new_path, translate_id)
+            process_translation(new_path, translate_id, source_lines=orig_lines)
             if sync_huawei:
                 sync_huawei_lrc(new_path)
             fixed_count += 1
         else:
             # Sudah benar — apply transliterasi + terjemahan jika belum bilingual
+            orig_lines = None
+            try:
+                with open(lrc_file, "r", encoding="utf-8") as f:
+                    orig_lines = f.readlines()
+            except Exception:
+                pass
             process_transliteration(lrc_file, transliterate)
-            process_translation(lrc_file, translate_id)
+            process_translation(lrc_file, translate_id, source_lines=orig_lines)
             if sync_huawei:
                 sync_huawei_lrc(lrc_file)
     return fixed_count
@@ -345,8 +357,14 @@ def _process_lyrics_for_audio(
     if not os.path.exists(lrc_path) and backup_lrc and os.path.exists(backup_lrc):
         shutil.move(backup_lrc, lrc_path)
         _log.info("Restore LRC backup (fetch gagal): %s", os.path.basename(lrc_path))
+        orig_lines = None
+        try:
+            with open(lrc_path, "r", encoding="utf-8") as f:
+                orig_lines = f.readlines()
+        except Exception:
+            pass
         process_transliteration(lrc_path, transliterate)
-        process_translation(lrc_path, translate_id)
+        process_translation(lrc_path, translate_id, source_lines=orig_lines)
         if sync_huawei:
             sync_huawei_lrc(lrc_path)
     elif backup_lrc and os.path.exists(backup_lrc):
