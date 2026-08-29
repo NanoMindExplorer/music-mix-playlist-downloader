@@ -92,17 +92,21 @@ def _init_db(conn: sqlite3.Connection) -> None:
 
 
 _DB_INITIALIZED = False
+_GLOBAL_CONN = None
 
 def _get_connection() -> sqlite3.Connection:
     """Buka koneksi SQLite + init tabel (sekali per process)."""
-    global _DB_INITIALIZED
-    db_path = _get_db_path()
-    conn = sqlite3.connect(str(db_path), timeout=30.0)
+    global _DB_INITIALIZED, _GLOBAL_CONN
     
     with _LOCK:
-        if not _DB_INITIALIZED:
-            _init_db(conn)
-            _DB_INITIALIZED = True
+        if _GLOBAL_CONN is not None:
+            return _GLOBAL_CONN
+            
+        db_path = _get_db_path()
+        conn = sqlite3.connect(str(db_path), timeout=30.0, check_same_thread=False)
+        _init_db(conn)
+        _DB_INITIALIZED = True
+        _GLOBAL_CONN = conn
             
     return conn
 

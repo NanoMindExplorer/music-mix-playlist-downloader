@@ -206,6 +206,10 @@ def run_doctor() -> int:
         ("open.spotify.com", 443, "Spotify embed scraping"),
         ("www.youtube.com", 443, "YouTube (yt-dlp source)"),
         ("soundcloud.com", 443, "SoundCloud (yt-dlp source)"),
+        ("music.163.com", 443, "NetEase API (syncedlyrics)"),
+        ("www.megalobiz.com", 443, "Megalobiz (syncedlyrics)"),
+        ("translate.google.com", 443, "Google Translate API"),
+        ("api.mymemory.translated.net", 443, "MyMemory Translate API"),
     ]
 
     for host, port, desc in endpoints:
