@@ -102,41 +102,20 @@ def main() -> None:
     """
     Entry point untuk `mmpd` console script (setelah `pip install .`).
 
+    Fase C: seluruh dispatch subcommand sekarang ada di mmpd.cli (argparse).
+    File ini tetap sebagai thin wrapper untuk backward compatibility.
+
     Mendukung subcommand:
-        mmpd             # mode interaktif (sama dengan `python downloader.py`)
-        mmpd doctor      # jalankan diagnostik
-        mmpd --version   # cetak versi
-
-    Backward compatible: `python downloader.py` tetap panggil `run_cli()` langsung.
+        mmpd                          # mode interaktif (sama dengan `python downloader.py`)
+        mmpd download|retrofit|lyrics # mode non-interaktif (Fase C)
+        mmpd cache|config             # utilitas
+        mmpd doctor                   # jalankan diagnostik
+        mmpd self-update              # update non-destruktif (Fase C)
+        mmpd --version                # cetak versi
     """
-    args = sys.argv[1:]
-
-    # Subcommand: doctor
-    if args and args[0] == "doctor":
-        try:
-            from mmpd.doctor import run_doctor
-            sys.exit(run_doctor())
-        except ImportError:
-            print("❌ Subcommand 'doctor' butuh mmpd/ package terinstal.")
-            print("   Jalankan: pip install -e . (atau pip install -U -r requirements.txt)")
-            sys.exit(1)
-
-    # Subcommand: --version / -V
-    if args and args[0] in ("--version", "-V"):
-        try:
-            from mmpd import __version__
-            print(f"mmpd {__version__}")
-        except ImportError:
-            # P0/Fase H: jangan bohong dengan versi fallback statis (dulu "3.2.0")
-            print("mmpd (unknown — mmpd package tidak ditemukan, jalankan: pip install -e .)")
-        sys.exit(0)
-
-    # Default: jalankan CLI utama
     try:
-        from mmpd.logger import setup_logging
-        import logging
-        setup_logging(level=logging.WARNING, enable_console=True)
-        run_cli()
+        from mmpd.cli import main as cli_main
+        sys.exit(cli_main())
     except KeyboardInterrupt:
         console.print("\n\n[bold red]Aplikasi dihentikan secara paksa (Ctrl+C).[/bold red]")
         sys.exit(0)
