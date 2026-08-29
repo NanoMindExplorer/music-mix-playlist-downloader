@@ -55,6 +55,13 @@ def reset_mmpd_singletons():
     except Exception:
         pass  # cache module mungkin tidak terinstal
 
+    # P0-fix: reset circuit breaker provider antar test (state module-level)
+    try:
+        from mmpd import lyrics_providers as _lp
+        _lp.reset_provider_breakers()
+    except Exception:
+        pass
+
     yield  # run test
 
     # Reset setelah test (untuk test berikutnya)

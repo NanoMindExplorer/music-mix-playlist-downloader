@@ -25,6 +25,38 @@ from mmpd.types import LyricsProvider, LyricsResult, TrackInfo
 
 
 # ============================================================================
+# P0-fix: Circuit breaker per-provider (module-level, satu state untuk semua)
+# ============================================================================
+# Versi lama mendefinisikan `_PROVIDER_FAILS` sebagai class attribute di dalam
+# SyncedLyricsProvider tapi mengaksesnya via `global` — assignment masuk ke
+# module scope, pembacaan dari class scope → dua dict berbeda + state bocor
+# antar test. Sekarang: satu module-level dict + helper eksplisit.
+
+_PROVIDER_FAILS: dict = {}
+_PROVIDER_FAIL_THRESHOLD = 3
+
+
+def provider_is_tripped(name: str) -> bool:
+    """True jika provider sudah gagal >= threshold kali berturut-turut (skip sisa sesi)."""
+    return _PROVIDER_FAILS.get(name, 0) >= _PROVIDER_FAIL_THRESHOLD
+
+
+def record_provider_fail(name: str) -> None:
+    """Catat satu kegagalan provider (increment breaker)."""
+    _PROVIDER_FAILS[name] = _PROVIDER_FAILS.get(name, 0) + 1
+
+
+def record_provider_success(name: str) -> None:
+    """Reset breaker provider setelah sukses."""
+    _PROVIDER_FAILS[name] = 0
+
+
+def reset_provider_breakers() -> None:
+    """Reset semua breaker (untuk testing / awal sesi baru)."""
+    _PROVIDER_FAILS.clear()
+
+
+# ============================================================================
 # Provider 1: LRCLIB (https://lrclib.net) — FREE, NO AUTH, LARGEST DB
 # ============================================================================
 
@@ -320,7 +352,7 @@ class SyncedLyricsProvider:
             log.warning("syncedlyrics: modul belum terinstal, skip provider")
             return False
 
-    _PROVIDER_FAILS = {}
+    _PROVIDER_FAILS = {}  # deprecated alias (tidak dipakai lagi) — lihat module-level breaker
 
     def search(self, track: TrackInfo) -> Optional[LyricsResult]:
         """Cari lirik via syncedlyrics. Return None jika tidak ditemukan."""
@@ -331,22 +363,21 @@ class SyncedLyricsProvider:
         clean_query = track.clean_search_query()
         log.debug("syncedlyrics search: query='%s'", clean_query)
 
-        global _PROVIDER_FAILS
         try:
             lrc_text = None
-            for p in (["Musixmatch"], ["NetEase"], ["Megalobiz"]):
-                provider_name = p[0]
-                if _PROVIDER_FAILS.get(provider_name, 0) >= 3:
-                    log.info("⏭️ %s dilewati untuk sisa sesi ini (gagal 3x berturut)", provider_name)
+            for p in ("Musixmatch", "NetEase", "Megalobiz"):
+                if provider_is_tripped(p):
+                    log.info("⏭️ %s dilewati untuk sisa sesi ini (gagal 3x berturut)", p)
                     continue
-                    
+
                 try:
-                    lrc_text = self._search_fn(clean_query, providers=p)
+                    lrc_text = self._search_fn(clean_query, providers=[p])
                     if lrc_text:
-                        _PROVIDER_FAILS[provider_name] = 0  # reset on success
+                        record_provider_success(p)
                         break
+                    lrc_text = None  # hasil kosong = miss sah, bukan kegagalan
                 except Exception as e:
-                    _PROVIDER_FAILS[provider_name] = _PROVIDER_FAILS.get(provider_name, 0) + 1
+                    record_provider_fail(p)
                     log.warning("syncedlyrics %s gagal: %s", p, e)
                     lrc_text = None
 

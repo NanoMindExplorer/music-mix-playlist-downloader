@@ -39,7 +39,10 @@ _DB_FILENAME = "cache.db"
 
 # Singleton
 _DB_PATH: Optional[Path] = None
-_LOCK = threading.Lock()
+# P0-fix: gunakan RLock (reentrant). Versi lama pakai Lock() biasa dan
+# _get_connection() juga meng-acquire _LOCK — panggilan seperti
+# `with _LOCK, _get_connection()` deadlock permanen (test suite hang).
+_LOCK = threading.RLock()
 
 
 def _get_db_path() -> Path:
@@ -61,9 +64,11 @@ _DB_INITIALIZED = False
 _GLOBAL_CONN = None
 
 def _get_connection() -> sqlite3.Connection:
+    """Buka koneksi SQLite + init tabel (sekali per process). Thread-safe via RLock."""
+
     def _init_db(c: sqlite3.Connection) -> None:
         """Buat tabel cache kalau belum ada."""
-        cursor = conn.cursor()
+        cursor = c.cursor()
         # Translation cache
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS translation_cache (
@@ -93,9 +98,8 @@ def _get_connection() -> sqlite3.Connection:
         # Index untuk lookup by isrc (lebih cepat)
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_lyrics_isrc ON lyrics_cache(isrc)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_lyrics_title ON lyrics_cache(track_title)")
-        conn.commit()
-    
-    """Buka koneksi SQLite + init tabel (sekali per process)."""
+        c.commit()
+
     global _DB_INITIALIZED, _GLOBAL_CONN
     
     with _LOCK:
