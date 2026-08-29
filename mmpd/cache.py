@@ -56,45 +56,45 @@ def _get_db_path() -> Path:
     return _DB_PATH
 
 
-def _init_db(conn: sqlite3.Connection) -> None:
-    """Buat tabel cache kalau belum ada."""
-    cursor = conn.cursor()
-    # Translation cache
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS translation_cache (
-            cache_key TEXT PRIMARY KEY,
-            source_text TEXT NOT NULL,
-            source_lang TEXT,
-            target_lang TEXT NOT NULL,
-            translated_text TEXT NOT NULL,
-            created_at INTEGER NOT NULL,
-            provider TEXT
-        )
-    """)
-    # Lyrics cache
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS lyrics_cache (
-            cache_key TEXT PRIMARY KEY,
-            track_title TEXT NOT NULL,
-            artist TEXT,
-            isrc TEXT,
-            synced_lyrics TEXT,
-            plain_lyrics TEXT,
-            provider TEXT,
-            created_at INTEGER NOT NULL,
-            expires_at INTEGER
-        )
-    """)
-    # Index untuk lookup by isrc (lebih cepat)
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_lyrics_isrc ON lyrics_cache(isrc)")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_lyrics_title ON lyrics_cache(track_title)")
-    conn.commit()
-
 
 _DB_INITIALIZED = False
 _GLOBAL_CONN = None
 
 def _get_connection() -> sqlite3.Connection:
+    def _init_db(c: sqlite3.Connection) -> None:
+        """Buat tabel cache kalau belum ada."""
+        cursor = conn.cursor()
+        # Translation cache
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS translation_cache (
+                cache_key TEXT PRIMARY KEY,
+                source_text TEXT NOT NULL,
+                source_lang TEXT,
+                target_lang TEXT NOT NULL,
+                translated_text TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                provider TEXT
+            )
+        """)
+        # Lyrics cache
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS lyrics_cache (
+                cache_key TEXT PRIMARY KEY,
+                track_title TEXT NOT NULL,
+                artist TEXT,
+                isrc TEXT,
+                synced_lyrics TEXT,
+                plain_lyrics TEXT,
+                provider TEXT,
+                created_at INTEGER NOT NULL,
+                expires_at INTEGER
+            )
+        """)
+        # Index untuk lookup by isrc (lebih cepat)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_lyrics_isrc ON lyrics_cache(isrc)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_lyrics_title ON lyrics_cache(track_title)")
+        conn.commit()
+    
     """Buka koneksi SQLite + init tabel (sekali per process)."""
     global _DB_INITIALIZED, _GLOBAL_CONN
     
@@ -348,5 +348,12 @@ def clear_all_cache() -> None:
 
 def reset_cache_singleton() -> None:
     """Reset DB path singleton (untuk testing)."""
-    global _DB_PATH
+    global _DB_PATH, _DB_INITIALIZED, _GLOBAL_CONN
     _DB_PATH = None
+    _DB_INITIALIZED = False
+    if globals().get('_GLOBAL_CONN') is not None:
+        try:
+            _GLOBAL_CONN.close()
+        except:
+            pass
+    _GLOBAL_CONN = None
