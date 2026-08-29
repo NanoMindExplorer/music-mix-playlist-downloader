@@ -50,7 +50,7 @@ jobs:
           python -m py_compile mmpd/modes/*.py
           python -m py_compile mmpd/lyrics/*.py
 
-      - name: Run ruff lint (Fase A: BLOCKING — jangan tambah '|| true' lagi)
+      - name: "Run ruff lint (Fase A: BLOCKING — jangan tambah '|| true' lagi)"
         run: |
           python -m pip install ruff
           python -m ruff check mmpd/ downloader.py
