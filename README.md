@@ -179,21 +179,8 @@ Terjemahan setiap baris lirik ke **Bahasa Indonesia**, ditambahkan tepat di bawa
 
 **Dual-engine translation**: Google Translate (utama) → MyMemory (fallback kalau Google rate-limit). Terjemahan SELALU dikerjakan dari **aksara asli** (snapshot sebelum transliterasi) — bukan dari pinyin/romaji — supaya akurasi maksimal. Hasil di-cache di SQLite (tidak pernah expire) — re-translate lirik yang sama = 100% cache hit, skip API call.
 
-### 4. ISRC-Based YouTube Matching (Akurasi 99%+)
-Untuk Spotify downloads, sistem pakai ISRC (International Standard Recording Code) untuk match track Spotify dengan video YouTube yang tepat:
-- **Strategi 1**: ISRC match (akurasi 99%+) — extract ISRC dari metadata top-3 YouTube candidates
-- **Strategi 2**: Fuzzy + duration verification (akurasi ~90%) — fuzzy title match + verifikasi durasi <5 detik
-- **Strategi 3**: Pure fuzzy (threshold 80%) — fallback terakhir
-
-### 5. Concurrent Downloads (3x Speedup)
+### 4. Concurrent Downloads (3x Speedup)
 Download playlist Spotify dengan 3 worker paralel (ThreadPoolExecutor). Playlist 50 lagu: ~250s (sequential) → ~85s (concurrent).
-
-### 6. SQLite Cache (10x Speedup untuk Re-Download)
-- **Translation cache**: SHA256(source_text + lang) → translated_text (never expire)
-- **Lyrics cache**: SHA256(title + artist + isrc) → lyrics (TTL 30 hari)
-- **Storage**: `~/.local/share/mmpd/cache/cache.db` (Linux) atau `$PREFIX/var/cache/mmpd/cache.db` (Termux)
-
-Playlist 50 lagu re-download dalam 30 hari → **0 API calls** (semua cache hit).
 
 #### Manajemen Cache (Command Line)
 Anda dapat mengelola cache SQLite menggunakan perintah-perintah berikut:
