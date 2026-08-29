@@ -29,16 +29,31 @@ _log = get_logger()
 
 
 def _find_repo_root() -> Path | None:
-    """Cari root repo git dari folder tempat package mmpd terpasang."""
-    # Mulai dari lokasi file ini (mode editable install) → naik sampai ketemu .git
+    """Cari root project mmpd dari lokasi package terpasang.
+
+    Marker yang dikenali (berurutan, makin ke atas makin prioritas):
+      1. folder ``.git`` → instalasi git clone (normal; self-update penuh)
+      2. ``pyproject.toml`` + folder ``mmpd/`` di direktori yang sama →
+         source tree TANPA .git (mis. hasil ekstrak zip/tarball, atau
+         checkout CI di container tanpa git). Root tetap ditemukan;
+         ``self_update()`` kemudian menolak dengan pesan jelas.
+
+    Return None kalau keduanya tidak ketemu (mis. instalasi wheel biasa
+    di site-packages — self-update memang tidak berlaku untuk itu).
+    """
     candidate = Path(__file__).resolve().parent
-    for _ in range(5):
+    fallback: Path | None = None
+    for _ in range(6):
         if (candidate / ".git").exists():
             return candidate
+        if (candidate / "pyproject.toml").exists() and (candidate / "mmpd").is_dir():
+            # Ingat sebagai kandidat, tapi tetap cari .git lebih ke atas
+            # (kalau ada, itu root sebenarnya untuk self-update).
+            fallback = candidate
         if candidate.parent == candidate:
             break
         candidate = candidate.parent
-    return None
+    return fallback
 
 
 def _run(cmd: list, cwd: Path | None = None) -> tuple[int, str]:
@@ -81,6 +96,19 @@ def self_update(pull: bool = True) -> int:
         return 1
 
     console.print(f"[green]Repo:[/green] {repo_root}")
+
+    # --- 0. Validasi ini benar-benar repo git ---
+    # _find_repo_root bisa menemukan source tree tanpa .git (mis. hasil
+    # unzip). Update via git mustahil di situ — tolak dengan pesan jelas.
+    if not (repo_root / ".git").exists():
+        console.print(
+            f"[bold red]\u274c {repo_root} bukan repo git (folder .git tidak ada)[/bold red]\n"
+            "[white]Folder sumber ditemukan, tapi sepertinya di-install dari zip/tarball.\n"
+            "self-update hanya berlaku untuk instalasi via git clone:\n"
+            "  git clone https://github.com/NanoMindExplorer/music-mix-playlist-downloader\n"
+            "  cd music-mix-playlist-downloader && pip install -e .[/white]\n"
+        )
+        return 1
 
     # --- 1. Cek working tree bersih ---
     code, out = _run(["git", "status", "--porcelain"], cwd=repo_root)
