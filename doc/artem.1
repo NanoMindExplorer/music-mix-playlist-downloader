@@ -1,0 +1,92 @@
+.ie \n(.g .ds Aq \(aq
+.el .ds Aq '
+.TH artem 1  "artem 3.0.0" 
+.SH NAME
+artem \- Convert images from multiple formats (jpg, png, webp, etc…) to ASCII art
+.SH SYNOPSIS
+\fBartem\fR [\fB\-c\fR|\fB\-\-characters\fR] [\fB\-s\fR|\fB\-\-size\fR] [\fB\-\-height\fR] [\fB\-w\fR|\fB\-\-width\fR] [\fB\-\-ratio\fR] [\fB\-\-flipX\fR] [\fB\-\-flipY\fR] [\fB\-\-centerX\fR] [\fB\-\-centerY\fR] [\fB\-o\fR|\fB\-\-output\fR] [\fB\-\-invert\fR] [\fB\-\-background\fR] [\fB\-\-border\fR] [\fB\-\-no\-color\fR] [\fB\-\-outline\fR] [\fB\-\-hysteresis\fR] [\fB\-\-verbose\fR] [\fB\-h\fR|\fB\-\-help\fR] [\fB\-V\fR|\fB\-\-version\fR] <\fIINPUT\fR> 
+.SH DESCRIPTION
+Convert images from multiple formats (jpg, png, webp, etc…) to ASCII art
+.SH OPTIONS
+.TP
+\fB\-c\fR, \fB\-\-characters\fR
+Change the characters that are used to display the image.The first character should have the highest \*(Aqdarkness\*(Aq and the last should have the least (recommended to be a space \*(Aq \*(Aq). A lower detail map is recommend for smaller images. Included characters can be used with the argument 0 | 1 | 2. If no characters are passed in, the default set will be used.
+.TP
+\fB\-s\fR, \fB\-\-size\fR [default: 80]
+Change the size of the output image. The minimum size is 20. Lower values will be ignored and changed to 20. This argument is conflicting with \-\-width and \-\-height.
+.TP
+\fB\-\-height\fR
+Use the terminal maximum terminal height to display the image. This argument is conflicting with \-\-size and \-\-width.
+.TP
+\fB\-w\fR, \fB\-\-width\fR
+Use the terminal maximum terminal width to display the image. This argument is conflicting with \-\-size and \-\-height.
+.TP
+\fB\-\-ratio\fR [default: 0.42]
+Change the ratio between height and width, since ASCII characters are a bit higher than long. The value has to be between 0.1 and 1.0. It is not recommend to change this setting.
+.TP
+\fB\-\-flipX\fR
+Flip the image along the X\-Axis/horizontally.
+.TP
+\fB\-\-flipY\fR
+Flip the image along the Y\-Axis/vertically.
+.TP
+\fB\-\-centerX\fR
+Center the image along the X\-Axis/horizontally in the terminal.
+.TP
+\fB\-\-centerY\fR
+Center the image along the Y\-Axis/vertically in the terminal.
+.TP
+\fB\-o\fR, \fB\-\-output\fR
+Output file for non\-colored ascii. If the output file is a plaintext file, no color will be used. The use color, either use a file with an .ansi extension, or an .svg/.html file, to convert the output to the respective format. .ansi files will consider environment variables when creating colored output, for example when COLORTERM is not set to truecolor,the resulting file will fallback to 8\-bit colors.
+.TP
+\fB\-\-invert\fR
+Inverts the characters used for the image, so light characters will as dark ones. Can be useful if the image has a dark background.
+.TP
+\fB\-\-background\fR
+Sets the background of the ascii as the color. This will be ignored if the terminal does not support truecolor. This argument is mutually exclusive with the no\-color argument.
+.TP
+\fB\-\-border\fR
+Adds a decorative border surrounding the ascii image. This will make the image overall a bit smaller, since it respects the user given size.
+.TP
+\fB\-\-no\-color\fR
+Do not use color when printing the image to the terminal.
+.TP
+\fB\-\-outline\fR
+Only create an outline of the image. This uses filters, so it will take more resources/time to complete, especially on larger images. It might not produce the desired output, it is advised to use this only on images with a clear distinction between foreground and background.
+.TP
+\fB\-\-hysteresis\fR
+When creating the outline use the hysteresis method, which will remove imperfection, but might not be as good looking in ascii form.This will require the \-\-outline argument to be present as well.
+.TP
+\fB\-\-verbose\fR [default: warn]
+Choose the verbosity of the logging level. Warnings and errors will always be shown by default. To completely disable them, use the off argument.
+.br
+
+.br
+\fIPossible values:\fR
+.RS 14
+.IP \(bu 2
+off: Do not show logs
+.IP \(bu 2
+error: Only show errors
+.IP \(bu 2
+warn: Show errors and warnings
+.IP \(bu 2
+info: Show info logs
+.IP \(bu 2
+debug: Show debug logs
+.IP \(bu 2
+trace: Show trace logs
+.RE
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print help (see a summary with \*(Aq\-h\*(Aq)
+.TP
+\fB\-V\fR, \fB\-\-version\fR
+Print version
+.TP
+<\fIINPUT\fR>
+Paths or URLs to the target image. If the input is an URL, the image is downloaded and then converted. The original image is NOT altered.
+.SH VERSION
+v3.0.0
+.SH AUTHORS
+@FineFindus

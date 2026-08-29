@@ -42,6 +42,7 @@ class SpotifyTrack:
         - spotify_url:   URL Spotify asli (untuk debugging)
         - popularity:    0-100 score dari Spotify (untuk disambiguation)
         - explicit:      True kalau lagu explicit
+        - cover_url:     URL gambar cover art dari Spotify
     """
 
     title: str
@@ -52,6 +53,7 @@ class SpotifyTrack:
     spotify_url: Optional[str] = None
     popularity: Optional[int] = None
     explicit: bool = False
+    cover_url: Optional[str] = None
 
     def to_track_info(self) -> TrackInfo:
         """Konversi ke TrackInfo untuk LyricsChain."""
@@ -387,6 +389,12 @@ class SpotifyClient:
         external_ids = data.get("external_ids", {})
         isrc = external_ids.get("isrc") if isinstance(external_ids, dict) else None
 
+        # Gambar cover
+        cover_url = None
+        images = album_data.get("images", [])
+        if images and isinstance(images, list):
+            cover_url = images[0].get("url")
+
         return SpotifyTrack(
             title=title,
             artist=artist_str,
@@ -396,6 +404,7 @@ class SpotifyClient:
             spotify_url=data.get("external_urls", {}).get("spotify"),
             popularity=data.get("popularity"),
             explicit=data.get("explicit", False),
+            cover_url=cover_url,
         )
 
 
@@ -441,14 +450,18 @@ class SpotifyClient:
                     if not artist and "artists" in item:
                         artist = ", ".join(a.get("name", "") for a in item["artists"])
                     if title:
-                        tracks.append(SpotifyTrack(title=title, artist=artist, spotify_url=item.get("uri", "")))
+                        cover_url = entity.get("coverArt", {}).get("sources", [{}])[0].get("url")
+                        if not cover_url:
+                            cover_url = item.get("coverArt", {}).get("sources", [{}])[0].get("url")
+                        tracks.append(SpotifyTrack(title=title, artist=artist, spotify_url=item.get("uri", ""), cover_url=cover_url))
             else:
                 title = entity.get("title") or entity.get("name")
                 if title:
                     artist = entity.get("subtitle", "")
                     if not artist and "artists" in entity:
                         artist = ", ".join(a.get("name", "") for a in entity["artists"])
-                    tracks.append(SpotifyTrack(title=title, artist=artist, spotify_url=entity.get("uri", "")))
+                    cover_url = entity.get("coverArt", {}).get("sources", [{}])[0].get("url")
+                    tracks.append(SpotifyTrack(title=title, artist=artist, spotify_url=entity.get("uri", ""), cover_url=cover_url))
             _log.info("Embed scraping: %d tracks ditemukan", len(tracks))
             return tracks
         except Exception as e:
