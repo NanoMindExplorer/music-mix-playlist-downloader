@@ -83,7 +83,8 @@ lrclib = [
 
 [project.scripts]
 # Entry point: setelah `pip install .`, user bisa langsung jalankan `mmpd`
-mmpd = "downloader:main"
+# Fase C: entry point baru via mmpd.cli (argparse subcommands)
+mmpd = "mmpd.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/NanoMindExplorer/music-mix-playlist-downloader"
