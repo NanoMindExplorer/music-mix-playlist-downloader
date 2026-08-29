@@ -460,6 +460,8 @@ def _process_lyrics_for_all_audio(
     main_task,
 ) -> None:
     """Cari & proses lirik untuk semua file audio yang baru diunduh."""
+    from mmpd.id3_embed import embed_lyrics_to_audio
+
     for root, _, files in os.walk(output_dir):
         for file in files:
             if not (file.endswith(".mp3") or file.endswith(".flac") or file.endswith(".wav")):
@@ -467,6 +469,7 @@ def _process_lyrics_for_all_audio(
 
             song_title = os.path.splitext(file)[0]
             lrc_path = os.path.join(root, f"{song_title}.lrc")
+            audio_path = os.path.join(root, file)
 
             # Jika lirik belum ada dan pakai Mode 1/2 (Spotify/syncedlyrics via chain)
             if (
@@ -487,23 +490,42 @@ def _process_lyrics_for_all_audio(
                 )
             elif os.path.exists(lrc_path):
                 # Lirik sudah ada (dari YouTube CC) — apply post-processing
+                # Fase L: snapshot return dari process_transliteration menjamin
+                # terjemahan dikerjakan dari aksara asli, bukan hasil latin-kan
                 source_lines = None
                 try:
                     with open(lrc_path, "r", encoding="utf-8") as f:
                         source_lines = f.readlines()
                 except Exception:
                     pass
-                process_transliteration(lrc_path, transliterate)
+                snapshot = process_transliteration(lrc_path, transliterate)
+                if snapshot:
+                    source_lines = snapshot
                 process_translation(lrc_path, translate_id, source_lines=source_lines)
                 if sync_huawei:
                     sync_huawei_lrc(lrc_path)
 
-            # Peringatan jika lirik tidak ditemukan
+            # Fase L: tanam lirik ke tag audio (USLT/SYLT) supaya muncul juga di
+            # player yang tidak membaca file .lrc sampingan
+            if os.path.exists(lrc_path) and not file.endswith(".wav"):
+                embed_lyrics_to_audio(audio_path, lrc_path)
+
+            # Peringatan jika lirik tidak ditemukan (pesan sesuai mode — Fase L
+            # fix: dulu selalu bilang "tidak memiliki CC" walau modenya bukan YT CC)
             if not os.path.exists(lrc_path):
                 progress.stop()
-                console.print(
-                    f"[bold yellow]⚠️ Lirik dilewati: Video YouTube tidak memiliki CC untuk {song_title[:30]}...[/bold yellow]"
-                )
+                if lyrics_mode.startswith("📺 3"):
+                    console.print(
+                        f"[bold yellow]⚠️ Lirik dilewati: Video YouTube tidak memiliki CC untuk {song_title[:30]}...[/bold yellow]"
+                    )
+                elif lyrics_mode.startswith("✍️ 2"):
+                    console.print(
+                        f"[bold yellow]⚠️ Lirik dilewati: Tidak ditemukan di database lirik untuk '{song_title[:30]}...' (coba judul Spotify lain)[/bold yellow]"
+                    )
+                else:
+                    console.print(
+                        f"[bold yellow]⚠️ Lirik dilewati: Tidak ditemukan di database lirik untuk {song_title[:30]}...[/bold yellow]"
+                    )
                 progress.start()
 
 

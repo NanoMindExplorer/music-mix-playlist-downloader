@@ -29,6 +29,7 @@ from rich.progress import (
 )
 
 from mmpd.config import is_termux
+from mmpd.id3_embed import embed_lyrics_to_audio
 from mmpd.logger import get_logger
 from mmpd.lyrics import fetch_synced_lyrics, process_translation, process_transliteration, sync_huawei_lrc
 from mmpd.ui import (
@@ -48,6 +49,84 @@ from mmpd.ytdlp import build_retrofit_opts
 import questionary
 
 _log = get_logger()
+
+
+def run_translate_only(
+    folder: str,
+    transliterate: str = "❌ 1",
+    sync_huawei: bool = False,
+    embed_id3: bool = True,
+) -> int:
+    """
+    Fase L: Retrofit mode "hanya suntik terjemahan" (translate-only).
+
+    Untuk setiap file .lrc di folder (rekursif):
+      1. Baca isi .lrc APA ADANYA (tidak fetch ulang dari internet!)
+      2. Kalau isinya sudah latin & kita butuh aksara asli untuk akurasi
+         terjemahan → coba ambil versi asli dari database (peek, tanpa
+         menimpa file tampilan)
+      3. Transliterasi (opsional, default JANGAN ubah)
+      4. Suntik terjemahan bilingual Indonesia
+      5. Sync Huawei (opsional) + embed USLT/SYLT ke audio (opsional)
+
+    JAMAN tidak menimpa lirik dengan hasil fetch baru — file .lrc yang sudah
+    benar timing-nya 100% aman. Ini mode yang tepat untuk koleksi yang sudah
+    bagian liriknya tapi belum ada terjemahan.
+
+    Returns: jumlah file .lrc yang berhasil diproses.
+    """
+    import glob as _glob
+
+    lrc_files = sorted(
+        _glob.glob(os.path.join(folder, "**", "*.lrc"), recursive=True)
+    )
+    # Exclude file .id.lrc (output terpisah mode id_only) dan backup
+    lrc_files = [
+        f for f in lrc_files
+        if not f.endswith(".id.lrc") and not f.endswith(".lrc.bak")
+    ]
+    if not lrc_files:
+        console.print("[bold yellow]⚠️ Tidak ada file .lrc di folder tersebut.[/bold yellow]")
+        return 0
+
+    console.print(
+        f"\n[bold cyan]🌐 Mode Suntik Terjemahan Saja (translate-only)[/bold cyan]\n"
+        f"[white]{len(lrc_files)} file lirik ditemukan. Lirik asli TIDAK akan "
+        f"di-fetch ulang — hanya ditambah terjemahan.[/white]\n"
+    )
+
+    processed = 0
+    for lrc_file in lrc_files:
+        title = os.path.splitext(os.path.basename(lrc_file))[0]
+        try:
+            # Snapshot asli dari database kalau file sudah latin (akurasi)
+            source_lines = _peek_original_source_lines(title, lrc_file)
+            snapshot = process_transliteration(lrc_file, transliterate)
+            if snapshot:
+                source_lines = snapshot  # transliterasi baru saja jalan → pakai snapshot fresh
+            process_translation(lrc_file, True, source_lines=source_lines)
+            if sync_huawei:
+                sync_huawei_lrc(lrc_file)
+            if embed_id3:
+                _embed_lyrics_nearby(lrc_file)
+            processed += 1
+        except Exception as e:
+            _log.warning("translate-only gagal untuk %s: %s", title[:40], e)
+
+    console.print(
+        f"\n[bold green]✅ {processed}/{len(lrc_files)} file lirik berhasil diproses.[/bold green]"
+    )
+    return processed
+
+
+def _embed_lyrics_nearby(lrc_path: str) -> bool:
+    """Tanam lirik ke file audio yang bersebelahan (nama sama, ekstensi audio)."""
+    base = os.path.splitext(lrc_path)[0]
+    for ext in (".mp3", ".flac", ".m4a"):
+        audio = base + ext
+        if os.path.exists(audio):
+            return embed_lyrics_to_audio(audio, lrc_path)
+    return False
 
 
 def run_retrofit() -> None:
@@ -134,7 +213,9 @@ def run_retrofit() -> None:
     force_overwrite_lrc = False
     if target_mode.startswith("✨ 1") or target_mode.startswith("📝 2"):
         force_overwrite_lrc = ask_confirm(
-            "⚠️ Hapus & Timpa file lirik (.lrc) lama yang mungkin salah timing?",
+            "⚠️ Hapus & Timpa file lirik (.lrc) lama dengan hasil fetch baru?\n"
+            "   (Default: TIDAK — lirik lama dipertahankan & hanya ditambah terjemahan.\n"
+            "    Pilih Yes HANYA kalau timing lirik lama memang salah. Backup .lrc.bak dibuat otomatis.)",
             default=False,
         )
 
@@ -172,9 +253,16 @@ def run_retrofit() -> None:
 
 
 def _cleanup_old_lrc_files(target_folder: str, transliterate: str, sync_huawei: bool, translate_id: bool = False) -> int:
-    """Rename file LRC dengan suffix bahasa (mis. song.ja.lrc) ke nama bersih, apply translit & sync."""
+    """Rename file LRC dengan suffix bahasa (mis. song.ja.lrc) ke nama bersih, apply translit & sync.
+
+    Fase L: sebelum menimpa `name.lrc` yang sudah ada dengan hasil rename,
+    file lama di-backup ke `name.lrc.bak` dulu (sebelumnya langsung dihapus —
+    potensi kehilangan lirik yang sudah benar).
+    """
     fixed_count = 0
     for lrc_file in glob.glob(os.path.join(target_folder, "**", "*.lrc"), recursive=True):
+        if lrc_file.endswith(".id.lrc"):
+            continue  # Fase L: output terpisah id_only bukan sumber rename
         parts = lrc_file.rsplit(".", 2)
         if len(parts) == 3 and len(parts[1]) <= 3:
             # Pattern: name.lang.lrc → rename to name.lrc
@@ -184,6 +272,8 @@ def _cleanup_old_lrc_files(target_folder: str, transliterate: str, sync_huawei: 
                 if parts[1] != "id" and os.path.getsize(new_path) > 0:
                     os.remove(lrc_file)
                     continue
+                # Fase L: backup dulu, jangan langsung hapus
+                _backup_file(new_path)
                 os.remove(new_path)
             shutil.move(lrc_file, new_path)
             orig_lines = None
@@ -192,8 +282,8 @@ def _cleanup_old_lrc_files(target_folder: str, transliterate: str, sync_huawei: 
                     orig_lines = f.readlines()
             except Exception:
                 pass
-            process_transliteration(new_path, transliterate)
-            process_translation(new_path, translate_id, source_lines=orig_lines)
+            snapshot = process_transliteration(new_path, transliterate)
+            process_translation(new_path, translate_id, source_lines=snapshot or orig_lines)
             if sync_huawei:
                 sync_huawei_lrc(new_path)
             fixed_count += 1
@@ -205,11 +295,24 @@ def _cleanup_old_lrc_files(target_folder: str, transliterate: str, sync_huawei: 
                     orig_lines = f.readlines()
             except Exception:
                 pass
-            process_transliteration(lrc_file, transliterate)
-            process_translation(lrc_file, translate_id, source_lines=orig_lines)
+            snapshot = process_transliteration(lrc_file, transliterate)
+            process_translation(lrc_file, translate_id, source_lines=snapshot or orig_lines)
             if sync_huawei:
                 sync_huawei_lrc(lrc_file)
     return fixed_count
+
+
+def _backup_file(path: str, suffix: str = ".bak") -> str:
+    """Backup file ke path+suffix. Return path backup (kosong kalau gagal)."""
+    backup_path = path + suffix
+    try:
+        if os.path.exists(path):
+            import shutil as _shutil
+            _shutil.copy2(path, backup_path)
+        return backup_path
+    except Exception as e:
+        _log.warning("Gagal backup %s: %s", os.path.basename(path), e)
+        return ""
 
 
 def _process_single_audio(
@@ -349,11 +452,18 @@ def _process_lyrics_for_audio(
     elif os.path.exists(lrc_path):
         # Lirik sudah ada. Jika sudah latin, coba ambil aksara asli
         # HANYA sebagai sumber terjemahan (file tampilan tidak ditimpa).
+        # Fase L: gunakan snapshot return dari process_transliteration supaya
+        # terjemahan SELALU dikerjakan dari aksara asli, bukan pinyin/romaji.
         source_lines = _peek_original_source_lines(title, lrc_path) if translate_id else None
-        process_transliteration(lrc_path, transliterate)
+        snapshot = process_transliteration(lrc_path, transliterate)
+        if snapshot:
+            source_lines = snapshot
         process_translation(lrc_path, translate_id, source_lines=source_lines)
         if sync_huawei:
             sync_huawei_lrc(lrc_path)
+        # Fase L: tanam lirik ke tag audio (USLT/SYLT) supaya muncul di player
+        # yang tidak membaca file .lrc sampingan
+        _embed_lyrics_nearby(lrc_path)
 
     # Jika fetch gagal tapi ada backup LRC latin, kembalikan lalu suntik terjemahan.
     if not os.path.exists(lrc_path) and backup_lrc and os.path.exists(backup_lrc):
@@ -365,21 +475,25 @@ def _process_lyrics_for_audio(
                 orig_lines = f.readlines()
         except Exception:
             pass
-        process_transliteration(lrc_path, transliterate)
-        process_translation(lrc_path, translate_id, source_lines=orig_lines)
+        snapshot = process_transliteration(lrc_path, transliterate)
+        process_translation(lrc_path, translate_id, source_lines=snapshot or orig_lines)
         if sync_huawei:
             sync_huawei_lrc(lrc_path)
+        _embed_lyrics_nearby(lrc_path)
     elif backup_lrc and os.path.exists(backup_lrc):
         try:
             os.remove(backup_lrc)
         except OSError:
             pass
 
-    # Peringatan jika lirik tidak ditemukan
+    # Peringatan jika lirik tidak ditemukan (pesan sesuai mode — Fase L fix:
+    # dulu selalu bilang "tidak memiliki CC" walau mode-nya bukan YouTube CC)
     if not os.path.exists(lrc_path):
         progress.stop()
         if lyrics_mode.startswith("📺 3"):
             msg = f"[bold yellow]⚠️ Lirik dilewati: Video YouTube tidak memiliki CC untuk {title[:30]}...[/bold yellow]"
+        elif lyrics_mode.startswith("✍️ 2"):
+            msg = f"[bold yellow]⚠️ Lirik dilewati: Tidak ditemukan di database lirik untuk '{title[:30]}...' (coba judul Spotify lain)[/bold yellow]"
         else:
             msg = f"[bold yellow]⚠️ Lirik dilewati: Tidak ditemukan di database lirik untuk {title[:30]}...[/bold yellow]"
         console.print(msg)

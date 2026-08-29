@@ -175,10 +175,20 @@ def _transliterate_universal(lines: List[str]) -> List[str]:
     return new_lines
 
 
-def process_transliteration(lrc_path: str, transliterate_mode: str) -> None:
+def process_transliteration(lrc_path: str, transliterate_mode: str) -> Optional[List[str]]:
     """
     Ubah huruf asing (Jepang/Mandarin/Korea/dll) di file LRC menjadi
     Romaji/Pinyin/Latin tanpa merusak tag waktu [mm:ss.xx].
+
+    Fase L: mengembalikan SNAPSHOT baris asli (aksara asli sebelum
+    di-transliterasi) supaya pemanggil bisa meneruskannya ke
+    process_translation(source_lines=...). Kontrak pipeline yang benar:
+
+        original = process_transliteration(lrc, mode)   # file jadi latin
+        process_translation(lrc, True, source_lines=original)  # terjemah dari ASLI
+
+    Tanpa snapshot, terjemahan akan dikerjakan dari pinyin/romaji —
+    akurasi anjlok drastis.
 
     Args:
         lrc_path:           Path file .lrc
@@ -186,21 +196,23 @@ def process_transliteration(lrc_path: str, transliterate_mode: str) -> None:
             "❌ 1" — biarkan aslinya (skip)
             "🇯🇵 2" — Jepang → Romaji (pykakasi)
             "🇨🇳 3" — Mandarin → Pinyin (pypinyin)
-            "🤖 4" — auto-detect bahasa (langdetect) + pilih transliterator
+            "🤖 4/5" — auto-detect bahasa (langdetect) + pilih transliterator
 
-    Behavior:
-        - Skip jika file tidak ada atau mode "❌ 1"
-        - Skip jika teks ternyata sudah alfabet Latin (mode auto)
-        - Tulis hasil via atomic_write_text (cegah korupsi saat crash)
+    Returns:
+        List baris asli (sebelum transliterasi), atau None kalau file tidak
+        ada / mode skip / terjadi error. Caller LAMA boleh mengabaikan return.
     """
     if not os.path.exists(lrc_path):
-        return
+        return None
     if transliterate_mode.startswith("❌"):
-        return
+        return None
 
     try:
         with open(lrc_path, "r", encoding="utf-8") as f:
             lines = f.readlines()
+
+        # Fase L: snapshot asli SEBELUM ada modifikasi — dikembalikan ke caller
+        original_snapshot = list(lines)
 
         # Gabungkan teks tanpa tag waktu untuk deteksi bahasa
         pure_text = " ".join([re.sub(r"\[.*?\]", "", line).strip() for line in lines if line.strip()])
@@ -295,9 +307,11 @@ def process_transliteration(lrc_path: str, transliterate_mode: str) -> None:
         # Tulis hasil secara atomik
         atomic_write_text(lrc_path, "".join(new_lines))
         _log.info("Transliteration OK: %s (lang=%s)", os.path.basename(lrc_path), target_lang)
+        return original_snapshot
 
     except Exception as e:
         _log.warning("Gagal transliterasi %s: %s", os.path.basename(lrc_path), e)
+        return None
 
 
 # ============================================================================

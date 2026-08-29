@@ -46,16 +46,15 @@ class TrackInfo:
         return " ".join(parts)
 
     def clean_search_query(self) -> str:
-        """Search query setelah strip bracket/parenthetical (mis. 'Song (Official Video)' → 'Song')."""
-        import re
-        q = self.search_query()
-        # Hapus [bracket], (parenthetical), 【japanese bracket】
-        q = re.sub(r"\[.*?\]|\(.*?\)|【.*?】", "", q).strip()
-        # Hapus kata kunci promo
-        q = re.sub(r"(?i)\b(official|music video|mv|lyric|video|audio|cover)\b", "", q).strip()
-        # Collapse multiple spaces
-        q = re.sub(r"\s+", " ", q).strip()
-        return q
+        """Query pencarian bersih — didelegasikan ke normalize_track_query (P0/Fase L).
+
+        Dulu method ini punya regex sendiri yang LEBIH SEMPIT daripada
+        mmpd.utils.matching.clean_search_query (tanpa OpenCC, tanpa promo
+        multi-bahasa lengkap) → dua jalur kode menghasilkan query berbeda
+        untuk lagu yang sama. Sekarang satu implementasi tunggal.
+        """
+        from mmpd.utils.matching import normalize_track_query
+        return normalize_track_query(self.title, self.artist)
 
 
 @dataclass(frozen=True)
