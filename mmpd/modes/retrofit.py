@@ -165,6 +165,8 @@ def run_retrofit() -> None:
                 sync_huawei=sync_huawei,
             )
             progress.advance(main_task)
+            import time
+            time.sleep(1)  # D3: jeda 1 detik antar lagu agar tidak rate-limit API
 
         progress.update(main_task, description="[bold green]✨ Proses Retrofit Selesai!", completed=len(audio_files))
 

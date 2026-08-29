@@ -132,6 +132,9 @@ def main() -> None:
 
     # Default: jalankan CLI utama
     try:
+        from mmpd.logger import setup_logging
+        import logging
+        setup_logging(level=logging.WARNING, enable_console=True)
         run_cli()
     except KeyboardInterrupt:
         console.print("\n\n[bold red]Aplikasi dihentikan secara paksa (Ctrl+C).[/bold red]")

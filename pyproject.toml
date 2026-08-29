@@ -60,6 +60,9 @@ dependencies = [
     # Optional secara teknis (legacy scraping masih jalan), tapi very recommended
     # untuk ISRC matching (akurasi 99%+ vs fuzzy title matching)
     "spotipy>=2.23.0",
+    "opencc-python-reimplemented>=0.1.7",
+    "ToJyutping>=0.2.1",
+    "pythainlp>=4.0.0",
 ]
 
 [project.optional-dependencies]
@@ -89,7 +92,7 @@ Changelog = "https://github.com/NanoMindExplorer/music-mix-playlist-downloader/r
 
 [tool.setuptools]
 # Package discovery: include mmpd/ + mmpd/utils/ + mmpd/modes/ + flat modules
-py-modules = ["downloader", "spotify_parser"]
+py-modules = ["downloader"]
 packages = ["mmpd", "mmpd.utils", "mmpd.modes"]
 
 [tool.setuptools.package-data]

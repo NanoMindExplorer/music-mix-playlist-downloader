@@ -31,6 +31,9 @@ def main() -> int:
     # Import lazy agar `python -m mmpd --version` cepat tanpa import yt_dlp dkk.
     try:
         from downloader import run_cli
+        from mmpd.logger import setup_logging
+        import logging
+        setup_logging(level=logging.WARNING, enable_console=True)
         run_cli()
         return 0
     except KeyboardInterrupt:
