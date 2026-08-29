@@ -403,7 +403,10 @@ def run_retrofit() -> None:
             )
             progress.advance(main_task)
             import time
-            time.sleep(1)  # D3: jeda 1 detik antar lagu agar tidak rate-limit API
+            # Fase R: jeda hanya diperlukan kalau ada panggilan network (YouTube
+            # metadata / lyrics provider). Translate-only lokal tidak perlu tidur.
+            needs_throttle = download_lyrics or not target_mode.startswith("📝 2")
+            time.sleep(1 if needs_throttle else 0.05)
 
         progress.update(main_task, description="[bold green]✨ Proses Retrofit Selesai!", completed=len(audio_files))
 
