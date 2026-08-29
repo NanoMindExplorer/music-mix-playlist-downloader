@@ -486,9 +486,16 @@ class LyricsChain:
 
 def build_default_chain(title: str = "") -> LyricsChain:
     """
-    Urutan provider tahan timeout:
-        1. Musixmatch native (paling cocok lagu Asia + pilihan UI "Spotify/Musixmatch")
-        2. LRCLIB (gratis, jarang timeout)
-        3. syncedlyrics (NetEase/Megalobiz) sebagai fallback terakhir
+    B4: Urutan dinamis berdasarkan script judul (NetEase diutamakan untuk CJK/Thai).
     """
-    return LyricsChain([MusixmatchProvider(), LrclibProvider(), SyncedLyricsProvider()])
+    from mmpd.lyrics import detect_script
+    script = detect_script(title) if title else "latin"
+    
+    # Default: Barat/Latin
+    chain = [MusixmatchProvider(), LrclibProvider(), SyncedLyricsProvider()]
+    
+    if script in ("ja", "zh", "ko", "th"):
+        # Untuk CJK & Thai, SyncedLyricsProvider (NetEase/Megalobiz) punya katalog lebih baik
+        chain = [SyncedLyricsProvider(), MusixmatchProvider(), LrclibProvider()]
+        
+    return LyricsChain(chain)
