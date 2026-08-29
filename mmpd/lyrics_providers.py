@@ -320,7 +320,7 @@ class SyncedLyricsProvider:
             log.warning("syncedlyrics: modul belum terinstal, skip provider")
             return False
 
-_PROVIDER_FAILS = {}
+    _PROVIDER_FAILS = {}
 
     def search(self, track: TrackInfo) -> Optional[LyricsResult]:
         """Cari lirik via syncedlyrics. Return None jika tidak ditemukan."""
