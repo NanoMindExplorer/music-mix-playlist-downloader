@@ -157,6 +157,19 @@ def build_parser() -> argparse.ArgumentParser:
                       help="jangan tanam lirik USLT/SYLT ke file audio")
 
     # ------------------------------------------------------------------
+    # organize (Mode 3 via CLI)
+    # ------------------------------------------------------------------
+    p_org = sub.add_parser(
+        "organize",
+        help="rapikan file audio + .lrc: rename match & pindah ke Music/Musiclrc",
+    )
+    p_org.add_argument("--dir", "-d", required=True, help="folder yang ingin dirapikan")
+    p_org.add_argument("--no-recursive", action="store_true",
+                       help="scan hanya root folder (default: rekursif)")
+    p_org.add_argument("--dry-run", action="store_true",
+                       help="preview rencana tanpa memindahkan file apa pun")
+
+    # ------------------------------------------------------------------
     # cache
     # ------------------------------------------------------------------
     p_cache = sub.add_parser("cache", help="kelola cache SQLite (lirik + terjemahan)")
@@ -192,8 +205,8 @@ def build_parser() -> argparse.ArgumentParser:
 # ============================================================================
 
 def _cmd_download(args) -> int:
-    from mmpd.ui import console
     from mmpd.config_loader import get_output_dir_from_config
+    from mmpd.ui import console
 
     lyrics_mode = _LYRICS_MODE_MAP[args.lyrics]
     if lyrics_mode == "✍️ 2":
@@ -226,8 +239,8 @@ def _cmd_download(args) -> int:
 
 
 def _cmd_retrofit(args) -> int:
-    from mmpd.modes.retrofit import run_retrofit_noninteractive
     from mmpd.config_loader import get_workers
+    from mmpd.modes.retrofit import run_retrofit_noninteractive
 
     target = "full"
     if args.lyrics_only:
@@ -261,9 +274,18 @@ def _cmd_lyrics(args) -> int:
     ) or 0
 
 
+def _cmd_organize(args) -> int:
+    from mmpd.modes.organizer import run_organizer_noninteractive
+    return run_organizer_noninteractive(
+        folder=args.dir,
+        recursive=not args.no_recursive,
+        dry_run=args.dry_run,
+    )
+
+
 def _cmd_cache(args) -> int:
-    from mmpd.ui import console
     from mmpd import cache as cache_mod
+    from mmpd.ui import console
 
     if args.clear:
         cache_mod.clear_all_cache()
@@ -290,9 +312,9 @@ def _cmd_cache(args) -> int:
 
 
 def _cmd_config(args) -> int:
-    from mmpd.ui import console
     from mmpd.config import get_config
     from mmpd.config_loader import create_example_config, load_config
+    from mmpd.ui import console
 
     if args.create_example:
         path = create_example_config()
@@ -349,6 +371,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return _cmd_retrofit(args)
     if args.command == "lyrics":
         return _cmd_lyrics(args)
+    if args.command == "organize":
+        return _cmd_organize(args)
     if args.command == "cache":
         return _cmd_cache(args)
     if args.command == "config":

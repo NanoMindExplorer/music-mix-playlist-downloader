@@ -32,7 +32,12 @@ from rich.progress import (
 from mmpd.config import is_termux
 from mmpd.id3_embed import embed_lyrics_to_audio
 from mmpd.logger import get_logger
-from mmpd.lyrics import fetch_synced_lyrics, process_translation, process_transliteration, sync_huawei_lrc
+from mmpd.lyrics import (
+    fetch_synced_lyrics,
+    process_translation,
+    process_transliteration,
+    sync_huawei_lrc,
+)
 from mmpd.ui import (
     LYRICS_MODE_CHOICES,
     RETROFIT_TARGET_CHOICES,
@@ -41,13 +46,10 @@ from mmpd.ui import (
     ask_select,
     ask_text,
     console,
-    custom_theme,
 )
 from mmpd.utils.ffmpeg import inject_cover_to_audio
 from mmpd.utils.fs import cleanup_temp_files, find_audio_files
 from mmpd.ytdlp import build_retrofit_opts
-
-import questionary
 
 _log = get_logger()
 
@@ -169,7 +171,7 @@ def run_retrofit_noninteractive(
         console.print(f"[bold red]❌ Folder tidak ditemukan: {folder}[/bold red]")
         return 1
 
-    console.print(f"\n[bold cyan]🛠️ Retrofit non-interaktif[/bold cyan]")
+    console.print("\n[bold cyan]🛠️ Retrofit non-interaktif[/bold cyan]")
     console.print(f"[white]Folder: {folder}[/white]")
     console.print(
         f"[dim]Target: {target} | terjemahan: {'ya' if translate_id else 'tidak'} | "
@@ -273,7 +275,6 @@ def run_retrofit_noninteractive(
 
     ok = sum(1 for r in results if r and r.success)
     fail = len(results) - ok
-    lrc_found = sum(1 for r in results if r and r.extra.get("title"))
 
     console.print(
         f"\n[bold green]✅ Retrofit selesai: {ok} berhasil, {fail} gagal[/bold green]"
@@ -292,7 +293,7 @@ def run_retrofit() -> None:
     config = get_config()
     folder = str(config.output_dir)
 
-    console.print(f"\n[bold cyan]🛠️ Mode Perbaikan / Retrofit Otomatis[/bold cyan]")
+    console.print("\n[bold cyan]🛠️ Mode Perbaikan / Retrofit Otomatis[/bold cyan]")
     console.print(
         "[white]Sistem akan memindai folder Anda, mencari lagu tanpa lirik/cover, "
         "mencarinya di YouTube, lalu menyuntikkannya ke file asli![/white]\n"
@@ -437,7 +438,7 @@ def _cleanup_old_lrc_files(target_folder: str, transliterate: str, sync_huawei: 
             shutil.move(lrc_file, new_path)
             orig_lines = None
             try:
-                with open(new_path, "r", encoding="utf-8") as f:
+                with open(new_path, encoding="utf-8") as f:
                     orig_lines = f.readlines()
             except Exception:
                 pass
@@ -450,7 +451,7 @@ def _cleanup_old_lrc_files(target_folder: str, transliterate: str, sync_huawei: 
             # Sudah benar — apply transliterasi + terjemahan jika belum bilingual
             orig_lines = None
             try:
-                with open(lrc_file, "r", encoding="utf-8") as f:
+                with open(lrc_file, encoding="utf-8") as f:
                     orig_lines = f.readlines()
             except Exception:
                 pass
@@ -507,7 +508,7 @@ def _process_single_audio(
     from mmpd.utils.matching import clean_search_query
     is_cover = bool(re.search(r"(?i)\b(cover|翻唱|歌ってみた|커버|คัฟเวอร์)\b", title))
     clean_title_for_yt = clean_search_query(title) or title
-    
+
     if is_cover:
         search_query = f"ytsearch1:{title}"  # Pakai judul asli agar match dengan cover
     else:
@@ -630,7 +631,7 @@ def _process_lyrics_for_audio(
         _log.info("Restore LRC backup (fetch gagal): %s", os.path.basename(lrc_path))
         orig_lines = None
         try:
-            with open(lrc_path, "r", encoding="utf-8") as f:
+            with open(lrc_path, encoding="utf-8") as f:
                 orig_lines = f.readlines()
         except Exception:
             pass
@@ -663,7 +664,7 @@ def _process_lyrics_for_audio(
 def _peek_original_source_lines(title: str, lrc_path: str):
     """Ambil lirik aksara asli dari database tanpa menimpa file latin yang sudah ada."""
     try:
-        with open(lrc_path, "r", encoding="utf-8") as f:
+        with open(lrc_path, encoding="utf-8") as f:
             current = f.read()
         from mmpd.lyrics import detect_script
         if detect_script(current) != "latin":
@@ -711,10 +712,10 @@ def _process_cover_art_for_audio(
     )
     from mmpd.cover_providers import download_cover_art
     from mmpd.utils.ffmpeg import crop_cover_to_square
-    
+
     temp_api_cover = os.path.join(dir_path, f"api_cover_{title}.jpg")
     cover_path = None
-    
+
     if download_cover_art(title, "", temp_api_cover):
         cover_path = temp_api_cover
     elif temp_cover_glob:
@@ -724,7 +725,7 @@ def _process_cover_art_for_audio(
             cover_path = temp_crop_cover
         else:
             cover_path = yt_cover
-            
+
     if not cover_path:
         return
 

@@ -23,7 +23,6 @@ from typing import List, Optional
 from mmpd.logger import get_logger
 from mmpd.types import LyricsProvider, LyricsResult, TrackInfo
 
-
 # ============================================================================
 # P0-fix: Circuit breaker per-provider (module-level, satu state untuk semua)
 # ============================================================================
@@ -338,7 +337,7 @@ class MusixmatchProvider:
             "app_id": self.APP_ID,
             "usertoken": token,
         }
-        
+
         if track.isrc:
             params["track_isrc"] = track.isrc
         else:
@@ -360,11 +359,11 @@ class MusixmatchProvider:
 
             macro_calls = data.get("message", {}).get("body", {}).get("macro_calls", {})
             subtitles_list = macro_calls.get("track.subtitles.get", {}).get("message", {}).get("body", {}).get("subtitle_list", [])
-            
+
             if not subtitles_list:
                 log.debug("Musixmatch: no subtitles found for '%s'", track.title)
                 return None
-                
+
             synced_lyrics = subtitles_list[0].get("subtitle", {}).get("subtitle_body", "")
             if not synced_lyrics:
                 return None
@@ -437,8 +436,6 @@ class SyncedLyricsProvider:
         except ImportError:
             log.warning("syncedlyrics: modul belum terinstal, skip provider")
             return False
-
-    _PROVIDER_FAILS = {}  # deprecated alias (tidak dipakai lagi) — lihat module-level breaker
 
     def search(self, track: TrackInfo) -> Optional[LyricsResult]:
         """Cari lirik via syncedlyrics. Return None jika tidak ditemukan."""
@@ -646,12 +643,12 @@ def build_default_chain(title: str = "") -> LyricsChain:
     """
     from mmpd.lyrics import detect_script
     script = detect_script(title) if title else "latin"
-    
+
     # Default: Barat/Latin
     chain = [MusixmatchProvider(), LrclibProvider(), SyncedLyricsProvider()]
-    
+
     if script in ("ja", "zh", "ko", "th"):
         # Untuk CJK & Thai, SyncedLyricsProvider (NetEase/Megalobiz) punya katalog lebih baik
         chain = [SyncedLyricsProvider(), MusixmatchProvider(), LrclibProvider()]
-        
+
     return LyricsChain(chain)

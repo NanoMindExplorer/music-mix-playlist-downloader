@@ -1,6 +1,8 @@
 import os
-import requests
 from typing import Optional
+
+import requests
+
 from mmpd.logger import get_logger
 
 try:
@@ -14,7 +16,7 @@ _log = get_logger()
 
 def get_cover_art_url(title: str, artist: str = "") -> Optional[str]:
     query = f"{title} {artist}".strip()
-    
+
     # 1. iTunes
     try:
         res = requests.get("https://itunes.apple.com/search", params={"term": query, "media": "music", "entity": "song", "limit": 1}, timeout=5)
@@ -69,7 +71,8 @@ def get_cover_art_url(title: str, artist: str = "") -> Optional[str]:
 
 def download_cover_art(title: str, artist: str, output_path: str) -> bool:
     url = get_cover_art_url(title, artist)
-    if not url: return False
+    if not url:
+        return False
     try:
         res = requests.get(url, timeout=10)
         res.raise_for_status()

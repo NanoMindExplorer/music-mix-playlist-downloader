@@ -60,7 +60,7 @@ def _lrc_to_plain(lrc_text: str) -> str:
 
 def _lrc_text_from_file(lrc_path: str) -> Optional[str]:
     try:
-        with open(lrc_path, "r", encoding="utf-8") as f:
+        with open(lrc_path, encoding="utf-8") as f:
             content = f.read()
         return content if content.strip() else None
     except Exception as e:

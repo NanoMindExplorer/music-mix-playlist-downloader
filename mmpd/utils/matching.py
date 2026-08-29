@@ -145,7 +145,7 @@ class TrackIdentity:
     lang: str = "latin"
 
     @classmethod
-    def from_raw_title(cls, raw_title: str, artist: Optional[str] = None) -> "TrackIdentity":
+    def from_raw_title(cls, raw_title: str, artist: Optional[str] = None) -> TrackIdentity:
         """Pecah judul mentah (mis. 'JUSTadICE (Official Music Video)') jadi identitas bersih."""
         is_cover = bool(_COVER_RE.search(raw_title or ""))
         clean = normalize_track_query(raw_title, artist=None) if artist else normalize_track_query(raw_title)

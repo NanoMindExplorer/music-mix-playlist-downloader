@@ -64,7 +64,7 @@ def _check_binary(name: str, min_version: str = "") -> Tuple[bool, str]:
     """Cek apakah binary ada di PATH, plus versi kalau bisa."""
     path = shutil.which(name)
     if path is None:
-        return False, f"tidak ditemukan di PATH"
+        return False, "tidak ditemukan di PATH"
     if min_version:
         try:
             res = subprocess.run(

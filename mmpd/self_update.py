@@ -18,7 +18,6 @@ Proses baru (aman):
 
 from __future__ import annotations
 
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -144,6 +143,7 @@ def self_update(pull: bool = True) -> int:
     # --- 5. Selesai: tampilkan versi baru ---
     try:
         import importlib
+
         import mmpd
         importlib.reload(mmpd)
         new_version = mmpd.__version__

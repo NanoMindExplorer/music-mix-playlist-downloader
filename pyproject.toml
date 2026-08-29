@@ -95,7 +95,7 @@ Changelog = "https://github.com/NanoMindExplorer/music-mix-playlist-downloader/r
 [tool.setuptools]
 # Package discovery: include mmpd/ + mmpd/utils/ + mmpd/modes/ + flat modules
 py-modules = ["downloader"]
-packages = ["mmpd", "mmpd.utils", "mmpd.modes"]
+packages = ["mmpd", "mmpd.utils", "mmpd.modes", "mmpd.lyrics"]
 
 [tool.setuptools.dynamic]
 version = { attr = "mmpd.__version__" }
@@ -104,6 +104,7 @@ version = { attr = "mmpd.__version__" }
 mmpd = ["py.typed"]
 "mmpd.utils" = ["py.typed"]
 "mmpd.modes" = ["py.typed"]
+"mmpd.lyrics" = ["py.typed"]
 
 [tool.mypy]
 python_version = "3.9"
@@ -189,4 +190,13 @@ select = [
 ignore = [
     "E501",  # line too long (rich output is wide)
     "B008",  # function call in default argument (questionary style)
+    # Fase A: typing modernization (Dict→dict, Optional→|None) butuh mass-churn
+    # di 20+ file dengan runtime annotation — ditunda agar diff reviewable.
+    "UP006",
+    "UP045",
+    "UP035",
+    # Karakter ambigu di docstring Bahasa Indonesia / CJK (em-dash, »)
+    "RUF001",
+    "RUF002",
+    "RUF003",
 ]
