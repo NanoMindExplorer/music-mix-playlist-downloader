@@ -578,6 +578,28 @@ def _worker_translate(text: str, source_lang: str) -> tuple[bool, str | None, di
     except Exception as e:
         return False, str(e), {}
 
+def _extract_worker_text(results, index: int) -> str:
+    """P0-fix: ambil teks hasil worker dari List[ConcurrentResult] dengan aman.
+
+    Versi lama menulis `"text" in res[i]` pada objek ConcurrentResult
+    (bukan dict) → TypeError yang ditelan except besar → fallback
+    translate per-baris tidak pernah mengisi hasil.
+    """
+    try:
+        item = results[index]
+    except (IndexError, TypeError):
+        return " "
+    if item is None:
+        return " "
+    # ConcurrentResult punya .extra dict; worker translate menyimpan {"text": ...}
+    extra = getattr(item, "extra", None)
+    if isinstance(extra, dict) and extra.get("text"):
+        return extra["text"]
+    # Backward-compat: worker lama yang return dict langsung
+    if isinstance(item, dict) and item.get("text"):
+        return item["text"]
+    return " "
+
 def _translate_via_api(texts_to_translate, source_lang: str = "auto"):
     """
     Translate list of texts ke Indonesia.
@@ -632,8 +654,7 @@ def _translate_via_api(texts_to_translate, source_lang: str = "auto"):
                                 description="Retry translate"
                             )
                             for local_m, global_i in enumerate(missing_idx):
-                                if res[local_m] and "text" in res[local_m]:
-                                    translated_texts[global_i] = res[local_m]["text"]
+                                translated_texts[global_i] = _extract_worker_text(res, local_m)
                     break  # Success, exit retry loop
                 except Exception as e:
                     _log.debug("Google batch attempt %d gagal (%s)", attempt + 1, e)
@@ -647,8 +668,7 @@ def _translate_via_api(texts_to_translate, source_lang: str = "auto"):
                 description="Fallback translate"
             )
             for local, global_i in enumerate(chunk_idx):
-                if res[local] and "text" in res[local]:
-                    translated_texts[global_i] = res[local]["text"]
+                translated_texts[global_i] = _extract_worker_text(res, local)
                     
         i += BATCH
         if i < len(pending):
