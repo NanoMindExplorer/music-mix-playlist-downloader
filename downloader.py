@@ -127,7 +127,8 @@ def main() -> None:
             from mmpd import __version__
             print(f"mmpd {__version__}")
         except ImportError:
-            print("mmpd 3.2.0 (fallback)")
+            # P0/Fase H: jangan bohong dengan versi fallback statis (dulu "3.2.0")
+            print("mmpd (unknown — mmpd package tidak ditemukan, jalankan: pip install -e .)")
         sys.exit(0)
 
     # Default: jalankan CLI utama
