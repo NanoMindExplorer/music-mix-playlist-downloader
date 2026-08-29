@@ -1,42 +1,76 @@
-# 🎵 Music Mix & Playlist Downloader Pro (AI Edition) v4.0
+# 🎵 Music Mix & Playlist Downloader (mmpd) v4.1
 
 ![CI](https://github.com/NanoMindExplorer/music-mix-playlist-downloader/actions/workflows/ci.yml/badge.svg)
 ![Python](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue)
-![Tests](https://img.shields.io/badge/tests-376%20passed-brightgreen)
-![Coverage](https://img.shields.io/badge/coverage-79%25-brightgreen)
-![Version](https://img.shields.io/badge/version-4.0.0-blue)
+![Version](https://img.shields.io/badge/version-4.1.0-blue)
 
-Aplikasi CLI interaktif *Next-Gen* untuk mendownload YouTube Mix, Playlist Spotify, SoundCloud, dan lainnya secara otomatis, lalu mengonversinya menjadi audio berkualitas tinggi (MP3/FLAC/WAV). Dilengkapi dengan **Kecerdasan Buatan (AI)** untuk menerjemahkan lirik, mengubah huruf asing ke alfabet Latin (Transliterasi), dan memanajemen perpustakaan musik Anda bak seorang profesional!
+Aplikasi CLI interaktif untuk mendownload YouTube Mix, Playlist Spotify, SoundCloud, lalu mengonversinya menjadi audio berkualitas tinggi (MP3/FLAC/WAV). Dilengkapi **Lyrics Engine**: transliterasi aksara asing (Romaji/Pinyin/Jyutping/Romanisasi Thai/Korea), terjemahan otomatis via Google Translate & MyMemory (bukan AI — lihat [Catatan Kejujuran](#-catatan-kejujuran)), sinkronisasi lirik karaoke (LRC), dan manajemen perpustakaan musik.
 
 ---
 
 ## ⚡ One-Line Install
 
-Salin & jalankan satu baris perintah di terminal Anda. Otomatis install semua dependensi + enable command `mmpd`. Jalankan ulang untuk update ke versi terbaru!
+Salin & jalankan satu baris perintah di terminal Anda. Otomatis install semua dependensi + enable command `mmpd`.
+
+> ⚠️ **Jangan jalankan ulang one-liner ini untuk update!** Perintah `rm -rf` di dalamnya menghapus folder repo beserta konfigurasi lokal. Untuk update, cukup jalankan `mmpd self-update` (tersedia mulai v4.1) atau `git pull && pip install -U -e .`.
 
 ### 📱 Android (Termux)
 ```bash
-termux-setup-storage; pkg update -y && pkg install -y python ffmpeg git && rm -rf music-mix-playlist-downloader && git clone https://github.com/NanoMindExplorer/music-mix-playlist-downloader.git && cd music-mix-playlist-downloader && pip install -U -r requirements.txt --break-system-packages && pip install -e . --break-system-packages && echo "✅ Install sukses! Jalankan: mmpd"
+termux-setup-storage; pkg update -y && pkg install -y python ffmpeg git && git clone https://github.com/NanoMindExplorer/music-mix-playlist-downloader.git && cd music-mix-playlist-downloader && pip install -U -r requirements.txt --break-system-packages && pip install -e . --break-system-packages && echo "✅ Install sukses! Jalankan: mmpd"
 ```
 
 ### 🐧 Linux (Ubuntu/Debian)
 ```bash
-sudo apt update && sudo apt install -y python3 python3-pip ffmpeg git && rm -rf music-mix-playlist-downloader && git clone https://github.com/NanoMindExplorer/music-mix-playlist-downloader.git && cd music-mix-playlist-downloader && pip3 install -U -r requirements.txt --break-system-packages && pip3 install -e . --break-system-packages && echo "✅ Install sukses! Jalankan: mmpd"
+sudo apt update && sudo apt install -y python3 python3-pip ffmpeg git && git clone https://github.com/NanoMindExplorer/music-mix-playlist-downloader.git && cd music-mix-playlist-downloader && pip3 install -U -r requirements.txt --break-system-packages && pip3 install -e . --break-system-packages && echo "✅ Install sukses! Jalankan: mmpd"
 ```
 
 ### 🪟 Windows (PowerShell)
 ```powershell
-winget install ffmpeg; if (Test-Path music-mix-playlist-downloader) { Remove-Item -Recurse -Force music-mix-playlist-downloader }; git clone https://github.com/NanoMindExplorer/music-mix-playlist-downloader.git; cd music-mix-playlist-downloader; pip install -U -r requirements.txt; pip install -e .; echo "✅ Install sukses! Jalankan: mmpd"
+winget install ffmpeg; git clone https://github.com/NanoMindExplorer/music-mix-playlist-downloader.git; cd music-mix-playlist-downloader; pip install -U -r requirements.txt; pip install -e .; echo "✅ Install sukses! Jalankan: mmpd"
 ```
 
 ### 🚀 Setelah Install
 
 ```bash
-mmpd                  # jalankan aplikasi (mode interaktif)
-mmpd doctor           # cek semua dependency & network
+mmpd                  # jalankan aplikasi (mode interaktif — perilaku lama)
 mmpd --version        # cetak versi
+mmpd doctor           # cek semua dependency & network
+mmpd self-update      # update non-destruktif (git pull + pip install -U -e .)
 python downloader.py  # alternatif (backward compatible)
 ```
+
+### ⌨️ CLI Non-Interaktif (baru di v4.1 — Fase C)
+
+Semua operasi utama sekarang bisa dijalankan tanpa menu interaktif (cocok untuk script / termux):
+
+```bash
+# Download non-interaktif dengan lirik + terjemahan
+mmpd download "https://youtube.com/watch?v=..." --format flac \
+    --lyrics musixmatch --translate --transliterate auto --lrc-format pisah
+
+# Retrofit koleksi lama: HANYA suntik terjemahan (aman, tidak fetch ulang lirik)
+mmpd retrofit --dir ~/storage/downloads/YT_Downloader \
+    --lyrics-only --translate --lrc-format pisah
+
+# Retrofit penuh (lirik + cover), timpa lirik lama hanya kalau mau (backup .bak otomatis)
+mmpd retrofit --dir ~/storage/downloads/YT_Downloader --translate --workers 2
+
+# Suntik terjemahan ke file .lrc saja (alias ringkas)
+mmpd lyrics --dir ~/storage/downloads/YT_Downloader --translate
+
+# Rapikan file audio+lrc → Music/Musiclrc (dry-run dulu untuk preview)
+mmpd organize --dir ~/storage/downloads --dry-run
+
+# Kelola cache
+mmpd cache --stats
+mmpd cache --clear-negative   # paksa cari ulang lirik yang tadinya tidak ditemukan
+
+# Konfigurasi (config.toml di ~/.config/mmpd/)
+mmpd config --create-example
+mmpd config                  # tampilkan config aktif
+```
+
+**Prinsip safety (Fase L):** secara default retrofit **tidak pernah menimpa** file `.lrc` lama — hanya menambah terjemahan. Menimpa harus eksplisit via `--overwrite` (backup `.lrc.bak` selalu dibuat). Lirik juga ditanam ke tag audio (USLT/SYLT) sehingga muncul di player yang tidak membaca file `.lrc` sampingan.
 
 ---
 
@@ -114,7 +148,7 @@ Download trek tunggal atau playlist dari SoundCloud.
 
 ---
 
-## 🚀 Fitur AI & Lirik Lanjutan
+## 🚀 Fitur Lyrics Engine & Lirik Lanjutan
 
 ### 1. Dual-Engine Lyrics (Sistem Mesin Ganda)
 Pilihan presisi darimana lirik diambil:
@@ -136,14 +170,14 @@ Tidak bisa membaca huruf Kanji/Hanzi/Hangul? Sistem akan mendeteksi bahasa otoma
 
 Timestamp karaoke `[00:00.00]` tetap utuh, tidak rusak.
 
-### 3. Terjemahan Lirik Bilingual (AI Translation)
+### 3. Terjemahan Lirik Bilingual (Google Translate + MyMemory)
 Terjemahan setiap baris lirik ke **Bahasa Indonesia**, ditambahkan tepat di bawah teks asli dengan timestamp identik (standar LRC bilingual):
 ```
 [00:01.23] Hello world
 [00:01.23] Halo dunia
 ```
 
-**Dual-engine translation**: Google Translate (utama) → MyMemory (fallback kalau Google rate-limit). Hasil di-cache di SQLite (tidak pernah expire) — re-translate lirik yang sama = 100% cache hit, skip API call.
+**Dual-engine translation**: Google Translate (utama) → MyMemory (fallback kalau Google rate-limit). Terjemahan SELALU dikerjakan dari **aksara asli** (snapshot sebelum transliterasi) — bukan dari pinyin/romaji — supaya akurasi maksimal. Hasil di-cache di SQLite (tidak pernah expire) — re-translate lirik yang sama = 100% cache hit, skip API call.
 
 ### 4. ISRC-Based YouTube Matching (Akurasi 99%+)
 Untuk Spotify downloads, sistem pakai ISRC (International Standard Recording Code) untuk match track Spotify dengan video YouTube yang tepat:
@@ -196,6 +230,18 @@ python3 -c "from mmpd.cache import get_cache_stats; import json; print(json.dump
   "db_path": "/data/.../cache.db"
 }
 ```
+
+---
+
+## 🤝 Catatan Kejujuran
+
+Repo ini sebelumnya memasarkan diri sebagai "AI Edition" dengan badge coverage 79% dan 376 tests. Mulai v4.1 kami meluruskannya supaya tidak menyesatkan:
+
+- **Bukan AI.** "Terjemahan lirik" memakai Google Translate / MyMemory API publik (deep-translator), bukan model AI milik aplikasi ini. Transliterasi memakai library deterministik (pykakasi, pypinyin, korean_romanizer, ToJyutping, pythainlp, anyascii). Penamaan "AI Edition" dihapus.
+- **Coverage nyata.** Badge 79% tidak akurat: konfigurasi coverage meng-omit seluruh `mmpd/modes/*` (modul UI terbesar) dan `fail_under` cuma 60. Angka coverage aktual berfluktuasi per-run — cek laporan Codecov CI untuk angka terkini, jangan percaya badge statis.
+- **Musixmatch & NetEase tidak resmi.** Provider lirik memakai endpoint tidak resmi (Musixmatch Desktop API, syncedlyrics scraping NetEase/Megalobiz). Bisa berhenti bekerja sewaktu-waktu tanpa pemberitahuan — LRCLIB adalah provider primer yang legal & stabil.
+- **`rm -rf` one-liner sudah ditarik.** One-liner instalasi lama menghapus folder repo saat "update" dan menghapus konfigurasi lokal Anda. Mulai v4.1 update cukup `mmpd self-update`.
+- **Spotify scraping bisa gagal.** Legacy scraping embed Spotify rusak sewaktu-waktu; gunakan Client Credentials API (set `SPOTIPY_CLIENT_ID`/`SPOTIPY_CLIENT_SECRET`) untuk hasil terbaik.
 
 ---
 

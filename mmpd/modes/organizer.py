@@ -3,10 +3,15 @@ Mode 3: Auto-Organizer (Pengatur Otomatis).
 
 Skenario: User download lirik (.lrc) manual di internet, taruh di folder
 Downloads secara berantakan. Mode ini akan:
-    1. Cari file .lrc di Downloads root
-    2. Match dengan file .mp3 di Downloads root (rapidfuzz)
-    3. Rename .lrc agar sama persis dengan .mp3
-    4. Pindahkan .mp3 ke folder Music, .lrc ke folder Musiclrc (Huawei style)
+    1. Cari file .lrc dan .mp3/.flac di folder target
+    2. Match nama .lrc dengan file audio (rapidfuzz, case-insensitive)
+    3. Rename .lrc agar sama persis dengan file audio
+    4. Pindahkan audio ke folder Music, .lrc ke folder Musiclrc (Huawei style)
+
+Fase A/P1:
+    - Scan REKURSIF (dulu hanya root folder — subfolder terlewat)
+    - DRY-RUN: preview rencana rename/move tanpa mengeksekusi apa pun
+    - run_organizer_noninteractive() untuk CLI `mmpd organize`
 """
 
 from __future__ import annotations
@@ -14,6 +19,7 @@ from __future__ import annotations
 import os
 import shutil
 from pathlib import Path
+from typing import List, Optional, Tuple
 
 from mmpd.config import get_config
 from mmpd.logger import get_logger
@@ -22,13 +28,102 @@ from mmpd.utils.matching import fuzzy_match
 
 _log = get_logger()
 
+_AUDIO_EXTS = (".mp3", ".flac", ".m4a", ".wav")
 
-def run_organizer() -> None:
-    """Jalankan Mode 3: Auto-Organizer."""
-    console.print(f"\n[bold cyan]📁 Mode 3: Pengatur Otomatis (Auto-Organizer)[/bold cyan]")
+
+def _scan_files(folder: str, recursive: bool) -> Tuple[List[str], List[str]]:
+    """Scan folder → (list path audio, list path lrc)."""
+    audio_files: List[str] = []
+    lrc_files: List[str] = []
+    if recursive:
+        for root, _, files in os.walk(folder):
+            for f in files:
+                p = os.path.join(root, f)
+                if f.lower().endswith(_AUDIO_EXTS):
+                    audio_files.append(p)
+                elif f.lower().endswith(".lrc") and not f.lower().endswith(".id.lrc"):
+                    lrc_files.append(p)
+    else:
+        for f in os.listdir(folder):
+            p = os.path.join(folder, f)
+            if not os.path.isfile(p):
+                continue
+            if f.lower().endswith(_AUDIO_EXTS):
+                audio_files.append(p)
+            elif f.lower().endswith(".lrc") and not f.lower().endswith(".id.lrc"):
+                lrc_files.append(p)
+    return sorted(audio_files), sorted(lrc_files)
+
+
+def _plan_moves(
+    lrc_files: List[str],
+    audio_files: List[str],
+    lrc_dir: str,
+    music_dir: str,
+) -> List[Tuple[str, str, str]]:
+    """Susun rencana perpindahan. Return list (src, dst, jenis_aksi)."""
+    plans: List[Tuple[str, str, str]] = []
+    audio_names = [os.path.splitext(os.path.basename(a))[0] for a in audio_files]
+
+    for lrc_path in lrc_files:
+        lrc_name = os.path.splitext(os.path.basename(lrc_path))[0]
+        best_match = fuzzy_match(lrc_name, audio_names, threshold=50)
+
+        if best_match:
+            new_name = f"{best_match}.lrc"
+        else:
+            new_name = os.path.basename(lrc_path)  # pakai nama asli
+
+        dst = os.path.join(lrc_dir, new_name)
+        plans.append((lrc_path, dst, f"lrc→{new_name}"))
+
+    for audio_path in audio_files:
+        dst = os.path.join(music_dir, os.path.basename(audio_path))
+        plans.append((audio_path, dst, f"audio→{os.path.basename(audio_path)}"))
+
+    return plans
+
+
+def _execute_plans(plans: List[Tuple[str, str, str]]) -> Tuple[int, int]:
+    """Jalankan rencana move. Return (moved_audio, moved_lrc)."""
+    moved_audio = 0
+    moved_lrc = 0
+    for src, dst, kind in plans:
+        try:
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            if os.path.exists(dst):
+                os.remove(dst)  # timpa versi lama di tujuan
+            shutil.move(src, dst)
+            if kind.startswith("audio"):
+                moved_audio += 1
+            else:
+                moved_lrc += 1
+            _log.info("Organizer move: %s → %s", src, dst)
+        except Exception as e:
+            _log.warning("Gagal pindahkan %s: %s", src, e)
+    return moved_audio, moved_lrc
+
+
+def run_organizer(
+    folder: Optional[str] = None,
+    recursive: bool = True,
+    dry_run: bool = False,
+) -> int:
+    """
+    Jalankan Mode 3: Auto-Organizer (interaktif, dengan konfirmasi).
+
+    Args:
+        folder:    folder sumber (default: Downloads; prompt kalau None)
+        recursive: scan subfolder juga (default True — Fase A)
+        dry_run:   hanya tampilkan rencana, JANGAN pindahkan apa pun
+
+    Returns:
+        0 sukses / 1 folder tidak valid / 2 tidak ada file.
+    """
+    console.print("\n[bold cyan]📁 Mode 3: Pengatur Otomatis (Auto-Organizer)[/bold cyan]")
     console.print(
-        "[white]Sistem akan mencari lagu & lirik yang Anda unduh secara manual di folder "
-        "Downloads, lalu menyamakan namanya dan memindahkannya ke folder Huawei Music "
+        "[white]Sistem akan mencari lagu & lirik yang Anda unduh secara manual, "
+        "lalu menyamakan namanya dan memindahkannya ke folder Music "
         "secara otomatis![/white]\n"
     )
 
@@ -44,89 +139,76 @@ def run_organizer() -> None:
 
     lrc_dir = os.path.join(music_dir, "Musiclrc")
 
-    if not os.path.exists(downloads_dir):
-        console.print("[bold red]❌ Folder Downloads tidak ditemukan![/bold red]")
-        return
+    target_folder = folder or downloads_dir
+    if folder is None:
+        # Prompt folder hanya di TTY; di non-interaktif pakai default.
+        try:
+            from mmpd.ui import ask_text
+            answer = ask_text("Masukkan folder yang ingin dirapikan:", default=downloads_dir)
+            if answer:
+                target_folder = answer
+        except (EOFError, Exception):
+            pass
 
-    # Cari file mp3 dan lrc di root Downloads
-    try:
-        all_files = os.listdir(downloads_dir)
-    except OSError as e:
-        console.print(f"[bold red]❌ Tidak bisa baca folder Downloads: {e}[/bold red]")
-        return
+    if not os.path.exists(target_folder):
+        console.print(f"[bold red]❌ Folder tidak ditemukan: {target_folder}[/bold red]")
+        return 1
 
-    mp3_files = [f for f in all_files if f.lower().endswith(".mp3")]
-    lrc_files = [f for f in all_files if f.lower().endswith(".lrc")]
-
-    if not mp3_files and not lrc_files:
+    audio_files, lrc_files = _scan_files(target_folder, recursive)
+    if not audio_files and not lrc_files:
         console.print(
-            "[dim yellow]⚠️ Tidak ditemukan file MP3 atau LRC mandiri di folder Downloads Anda.[/dim yellow]"
+            "[dim yellow]⚠️ Tidak ditemukan file audio/LRC di folder tersebut.[/dim yellow]"
         )
-        return
+        return 2
 
+    scope = "rekursif (termasuk subfolder)" if recursive else "hanya root folder"
     console.print(
-        f"[bold green]✅ Ditemukan {len(mp3_files)} MP3 dan {len(lrc_files)} file LRC di folder Downloads.[/bold green]"
+        f"[bold green]✅ Ditemukan {len(audio_files)} audio dan {len(lrc_files)} file LRC ({scope}).[/bold green]"
     )
 
-    if not ask_confirm(
-        "▶️ Mulai proses perapian (Ganti Nama Otomatis & Pindahkan ke Folder Musik)?",
-        default=True,
-    ):
-        return
+    plans = _plan_moves(lrc_files, audio_files, lrc_dir, music_dir)
+
+    # Preview rencana (dry-run style) — Fase A
+    console.print(f"\n[bold]📋 Rencana perapian ({len(plans)} aksi):[/bold]")
+    for src, _dst, kind in plans[:20]:
+        console.print(f"  [cyan]{kind}[/cyan] [dim]{os.path.basename(src)}[/dim]")
+    if len(plans) > 20:
+        console.print(f"  [dim]... dan {len(plans) - 20} aksi lainnya[/dim]")
+    console.print(f"\n[bold]🎧 Musik →[/bold] [yellow]{music_dir}[/yellow]")
+    console.print(f"[bold]🎤 Lirik  →[/bold] [yellow]{lrc_dir}[/yellow]\n")
+
+    if dry_run:
+        console.print("[bold yellow]🔍 DRY-RUN: tidak ada file yang dipindahkan.[/bold yellow]")
+        return 0
+
+    # Konfirmasi via ask_confirm; di environment non-interaktif (pipe/CI/test)
+    # prompt akan EOF → auto-proceed dengan default (True).
+    try:
+        confirmed = ask_confirm(
+            "▶️ Mulai proses perapian (Ganti Nama Otomatis & Pindahkan ke Folder Musik)?",
+            default=True,
+        )
+    except (EOFError, Exception):
+        confirmed = True
+    if confirmed is False:
+        return 0
 
     os.makedirs(music_dir, exist_ok=True)
     os.makedirs(lrc_dir, exist_ok=True)
 
-    moved_mp3 = 0
-    moved_lrc = 0
-
     with console.status("[cyan]Merapikan file Anda..."):
-        # Match & pindahkan LRC
-        for lrc in lrc_files:
-            lrc_path = os.path.join(downloads_dir, lrc)
-            lrc_name = os.path.splitext(lrc)[0]
+        moved_audio, moved_lrc = _execute_plans(plans)
 
-            # Cari best match di mp3_files
-            mp3_names_stripped = [os.path.splitext(f)[0] for f in mp3_files]
-            best_match_stripped = fuzzy_match(lrc_name, mp3_names_stripped, threshold=50)
-
-            if best_match_stripped:
-                # Cari index di mp3_files untuk dapatkan nama lengkap
-                best_match = next(
-                    (f for f in mp3_files if os.path.splitext(f)[0] == best_match_stripped),
-                    None,
-                )
-                if best_match:
-                    new_lrc_name = f"{best_match_stripped}.lrc"
-                else:
-                    new_lrc_name = lrc
-            else:
-                new_lrc_name = lrc  # pakai nama asli
-
-            target_lrc_path = os.path.join(lrc_dir, new_lrc_name)
-            # Timpa jika sudah ada
-            if os.path.exists(target_lrc_path):
-                os.remove(target_lrc_path)
-            try:
-                shutil.move(lrc_path, target_lrc_path)
-                moved_lrc += 1
-                _log.info("LRC moved: %s → %s", lrc, new_lrc_name)
-            except Exception as e:
-                _log.warning("Gagal pindahkan LRC %s: %s", lrc, e)
-
-        # Pindahkan MP3
-        for mp3 in mp3_files:
-            mp3_path = os.path.join(downloads_dir, mp3)
-            target_mp3_path = os.path.join(music_dir, mp3)
-            if os.path.exists(target_mp3_path):
-                os.remove(target_mp3_path)
-            try:
-                shutil.move(mp3_path, target_mp3_path)
-                moved_mp3 += 1
-                _log.info("MP3 moved: %s", mp3)
-            except Exception as e:
-                _log.warning("Gagal pindahkan MP3 %s: %s", mp3, e)
-
-    console.print(f"\n[bold green]✨ Proses Perapian Selesai![/bold green]")
-    console.print(f"🎵 {moved_mp3} lagu dipindahkan ke: [yellow]{music_dir}[/yellow]")
+    console.print("\n[bold green]✨ Proses Perapian Selesai![/bold green]")
+    console.print(f"🎵 {moved_audio} lagu dipindahkan ke: [yellow]{music_dir}[/yellow]")
     console.print(f"🎤 {moved_lrc} lirik dipindahkan ke: [yellow]{lrc_dir}[/yellow]\n")
+    return 0
+
+
+def run_organizer_noninteractive(
+    folder: str,
+    recursive: bool = True,
+    dry_run: bool = False,
+) -> int:
+    """Alias non-interaktif untuk CLI `mmpd organize` (tanpa konfirmasi)."""
+    return run_organizer(folder=folder, recursive=recursive, dry_run=dry_run)
