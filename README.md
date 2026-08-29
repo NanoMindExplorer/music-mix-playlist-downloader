@@ -4,7 +4,7 @@
 ![Python](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue)
 ![Version](https://img.shields.io/badge/version-4.1.0-blue)
 
-Aplikasi CLI interaktif untuk mendownload YouTube Mix, Playlist Spotify, SoundCloud, lalu mengonversinya menjadi audio berkualitas tinggi (MP3/FLAC/WAV). Dilengkapi **Lyrics Engine**: transliterasi aksara asing (Romaji/Pinyin/Jyutping/Romanisasi Thai/Korea), terjemahan otomatis via Google Translate & MyMemory (bukan AI — lihat [Catatan Kejujuran](#-catatan-kejujuran)), sinkronisasi lirik karaoke (LRC), dan manajemen perpustakaan musik.
+Aplikasi CLI interaktif untuk mendownload YouTube Mix, Playlist Spotify, SoundCloud, lalu mengonversinya menjadi audio berkualitas tinggi (MP3/FLAC/WAV). Dilengkapi **Lyrics Engine**: transliterasi aksara asing (Romaji/Pinyin/Jyutping/Romanisasi Thai/Korea), sinkronisasi lirik karaoke (LRC), dan manajemen perpustakaan musik.
 
 ---
 
@@ -230,19 +230,6 @@ python3 -c "from mmpd.cache import get_cache_stats; import json; print(json.dump
   "db_path": "/data/.../cache.db"
 }
 ```
-
----
-
-## 🤝 Catatan Kejujuran
-
-Repo ini sebelumnya memasarkan diri sebagai "AI Edition" dengan badge coverage 79% dan 376 tests. Mulai v4.1 kami meluruskannya supaya tidak menyesatkan:
-
-- **Bukan AI.** "Terjemahan lirik" memakai Google Translate / MyMemory API publik (deep-translator), bukan model AI milik aplikasi ini. Transliterasi memakai library deterministik (pykakasi, pypinyin, korean_romanizer, ToJyutping, pythainlp, anyascii). Penamaan "AI Edition" dihapus.
-- **Coverage nyata.** Badge 79% tidak akurat: konfigurasi coverage meng-omit seluruh `mmpd/modes/*` (modul UI terbesar) dan `fail_under` cuma 60. Angka coverage aktual berfluktuasi per-run — cek laporan Codecov CI untuk angka terkini, jangan percaya badge statis.
-- **Musixmatch & NetEase tidak resmi.** Provider lirik memakai endpoint tidak resmi (Musixmatch Desktop API, syncedlyrics scraping NetEase/Megalobiz). Bisa berhenti bekerja sewaktu-waktu tanpa pemberitahuan — LRCLIB adalah provider primer yang legal & stabil.
-- **`rm -rf` one-liner sudah ditarik.** One-liner instalasi lama menghapus folder repo saat "update" dan menghapus konfigurasi lokal Anda. Mulai v4.1 update cukup `mmpd self-update`.
-- **Spotify scraping bisa gagal.** Legacy scraping embed Spotify rusak sewaktu-waktu; gunakan Client Credentials API (set `SPOTIPY_CLIENT_ID`/`SPOTIPY_CLIENT_SECRET`) untuk hasil terbaik.
-
 ---
 
 ## 🛡️ Fitur Fundamental
