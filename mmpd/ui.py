@@ -34,6 +34,13 @@ custom_theme = questionary.Style([
 
 def print_banner() -> None:
     """Cetak banner ala Antigravity CLI dengan logo headphone."""
+    # P0/Fase H: versi dibaca dari mmpd.__version__ (single source of truth),
+    # bukan hardcode "v3.1" yang sudah basi sejak lama.
+    try:
+        from mmpd import __version__ as _mmpd_version
+    except ImportError:
+        _mmpd_version = "dev"
+
     console.clear()
     
     # ASCII Headphone (Generated with Artem)
@@ -76,7 +83,7 @@ def print_banner() -> None:
             padding=(1, 4),
             title="[bold white] 🎵 YT AUDIO DOWNLOADER PRO [/bold white]",
             title_align="center",
-            subtitle="[bold white]v3.1[/bold white] [dim]• Interactive CLI & Retrofit Engine[/dim]",
+            subtitle=f"[bold white]v{_mmpd_version}[/bold white] [dim]• Interactive CLI & Retrofit Engine[/dim]",
             subtitle_align="center",
         )
     )

@@ -4,11 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "music-mix-playlist-downloader"
-version = "4.0.0"
-description = "CLI Next-Gen untuk download YouTube Mix, Playlist Spotify, SoundCloud dengan AI Lyrics Engine"
+description = "CLI untuk download YouTube Mix, Playlist Spotify, SoundCloud dengan Lyrics Engine (transliterasi + terjemahan)"
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
+# P0/Fase H: versi tunggal — dibaca dari mmpd/__init__.py (single source of truth)
+dynamic = ["version"]
 authors = [
     { name = "NanoMindExplorer", email = "nanomindexplorer@users.noreply.github.com" }
 ]
@@ -94,6 +95,9 @@ Changelog = "https://github.com/NanoMindExplorer/music-mix-playlist-downloader/r
 # Package discovery: include mmpd/ + mmpd/utils/ + mmpd/modes/ + flat modules
 py-modules = ["downloader"]
 packages = ["mmpd", "mmpd.utils", "mmpd.modes"]
+
+[tool.setuptools.dynamic]
+version = { attr = "mmpd.__version__" }
 
 [tool.setuptools.package-data]
 mmpd = ["py.typed"]
