@@ -21,3 +21,4 @@ dist/
 *.swo
 .DS_Store
 
+.cache
