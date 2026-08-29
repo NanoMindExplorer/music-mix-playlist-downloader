@@ -35,6 +35,43 @@ from mmpd.types import LyricsProvider, LyricsResult, TrackInfo
 _PROVIDER_FAILS: dict = {}
 _PROVIDER_FAIL_THRESHOLD = 3
 
+# Fase L: wall-clock timeout untuk provider yang bisa hang (khususnya NetEase
+# via syncedlyrics — endpoint-nya lambat dan patch timeout requests tidak
+# menutup kasus server yang menerima koneksi tapi tidak pernah menjawab).
+# Executor dibuat sekali dan TIDAK pernah di-shutdown (thread daemon-leak
+# terkontrol, max 1 executor per process) supaya future yang timeout tidak
+# memblokir shutdown handler.
+from concurrent.futures import ThreadPoolExecutor  # noqa: E402
+from concurrent.futures import TimeoutError as _FutureTimeoutError  # noqa: E402
+
+_SEARCH_EXECUTOR: ThreadPoolExecutor | None = None
+_PROVIDER_CALL_TIMEOUT = 30.0  # detik per panggilan provider
+
+
+def _get_search_executor() -> ThreadPoolExecutor:
+    global _SEARCH_EXECUTOR
+    if _SEARCH_EXECUTOR is None:
+        _SEARCH_EXECUTOR = ThreadPoolExecutor(
+            max_workers=2, thread_name_prefix="mmpd-provider"
+        )
+    return _SEARCH_EXECUTOR
+
+
+def call_with_timeout(fn, *args, timeout: float = _PROVIDER_CALL_TIMEOUT, **kwargs):
+    """Jalankan fn(*args, **kwargs) dengan batas waktu wall-clock.
+
+    Kalau lewat batas waktu, raise TimeoutError. Thread yang hung dibiarkan
+    jalan di background (tidak bisa dipaksa dibunuh di Python) tapi caller
+    sudah bebas melanjutkan ke provider berikutnya.
+    """
+    future = _get_search_executor().submit(fn, *args, **kwargs)
+    try:
+        return future.result(timeout=timeout)
+    except _FutureTimeoutError as e:
+        raise TimeoutError(
+            f"provider call exceeded {timeout:.0f}s wall-clock limit"
+        ) from e
+
 
 def provider_is_tripped(name: str) -> bool:
     """True jika provider sudah gagal >= threshold kali berturut-turut (skip sisa sesi)."""
@@ -371,11 +408,19 @@ class SyncedLyricsProvider:
                     continue
 
                 try:
-                    lrc_text = self._search_fn(clean_query, providers=[p])
+                    # Fase L: NetEase rawan hang — bungkus dengan wall-clock timeout
+                    timeout = 20.0 if p == "NetEase" else _PROVIDER_CALL_TIMEOUT
+                    lrc_text = call_with_timeout(
+                        self._search_fn, clean_query, providers=[p], timeout=timeout
+                    )
                     if lrc_text:
                         record_provider_success(p)
                         break
                     lrc_text = None  # hasil kosong = miss sah, bukan kegagalan
+                except TimeoutError as e:
+                    record_provider_fail(p)
+                    log.warning("syncedlyrics %s TIMEOUT (%s) — lanjut provider berikutnya", p, e)
+                    lrc_text = None
                 except Exception as e:
                     record_provider_fail(p)
                     log.warning("syncedlyrics %s gagal: %s", p, e)
@@ -465,6 +510,20 @@ class LyricsChain:
         except Exception as e:
             self._log.warning("Lyrics cache read error: %s", e)
 
+        # === Fase L: cek negative cache — track ini baru saja dicari & kosong ===
+        try:
+            from mmpd.cache import is_lyrics_known_missing
+            if is_lyrics_known_missing(track.title, track.artist, track.isrc):
+                self._log.info(
+                    "Negative cache HIT (lirik sudah dicari & tidak ada, TTL 24 jam): %s",
+                    track.title,
+                )
+                return None
+        except ImportError:
+            pass
+        except Exception as e:
+            self._log.warning("Negative cache read error: %s", e)
+
         # === Cache miss: panggil provider ===
         for provider in self._providers:
             provider_name = getattr(provider, "name", provider.__class__.__name__)
@@ -512,6 +571,14 @@ class LyricsChain:
                 continue
 
         self._log.info("LyricsChain: no provider returned lyrics for '%s'", track.title)
+
+        # Fase L: catat ke negative cache (TTL pendek, PISAH dari cache utama)
+        # supaya run berikutnya tidak spam provider untuk lagu yang sama.
+        try:
+            from mmpd.cache import set_lyrics_not_found
+            set_lyrics_not_found(track.title, track.artist, track.isrc)
+        except Exception:
+            pass
         return None
 
 

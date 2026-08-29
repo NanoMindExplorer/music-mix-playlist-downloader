@@ -98,6 +98,20 @@ def _get_connection() -> sqlite3.Connection:
         # Index untuk lookup by isrc (lebih cepat)
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_lyrics_isrc ON lyrics_cache(isrc)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_lyrics_title ON lyrics_cache(track_title)")
+        # Fase L: negative cache — hasil pencarian KOSONG tidak boleh masuk
+        # lyrics_cache utama (supaya tidak pernah dikira 'lirik kosong' yang sah),
+        # tapi tetap diingat sebentar agar tidak spam provider untuk lagu yang
+        # sudah terbukti tidak ada.
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS lyrics_negative_cache (
+                cache_key TEXT PRIMARY KEY,
+                track_title TEXT NOT NULL,
+                artist TEXT,
+                isrc TEXT,
+                created_at INTEGER NOT NULL,
+                expires_at INTEGER NOT NULL
+            )
+        """)
         c.commit()
 
     global _DB_INITIALIZED, _GLOBAL_CONN
@@ -281,6 +295,84 @@ def set_lyrics_cache(
 
 
 # ============================================================================
+# Negative cache (Fase L) — "lirik ini sudah dicari & TIDAK ADA"
+# ============================================================================
+
+_NEGATIVE_TTL_SECONDS = 24 * 60 * 60  # 24 jam: provider DB berubah, coba lagi besok
+
+
+def set_lyrics_not_found(
+    track_title: str,
+    artist: Optional[str] = None,
+    isrc: Optional[str] = None,
+    ttl_seconds: int = _NEGATIVE_TTL_SECONDS,
+) -> None:
+    """Catat bahwa semua provider gagal menemukan lirik untuk track ini.
+
+    Entry ini PISAH dari lyrics_cache utama (jangan pernah menyimpan string
+    kosong di lyrics_cache — itu akan dikira hasil sah). TTL pendek (default
+    24 jam) karena database provider terus bertambah.
+    """
+    cache_key = _hash_key(track_title, artist or "", isrc or "")
+    try:
+        with _LOCK, _get_connection() as conn:
+            conn.execute(
+                """INSERT OR REPLACE INTO lyrics_negative_cache
+                   (cache_key, track_title, artist, isrc, created_at, expires_at)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (cache_key, track_title, artist, isrc,
+                 int(time.time()), int(time.time()) + ttl_seconds),
+            )
+            conn.commit()
+        _log.debug("Negative cache set: %s", track_title[:30])
+    except Exception as e:
+        _log.warning("Negative cache write error: %s", e)
+
+
+def is_lyrics_known_missing(
+    track_title: str,
+    artist: Optional[str] = None,
+    isrc: Optional[str] = None,
+) -> bool:
+    """True kalau track ini baru saja dicari semua provider dan hasilnya kosong.
+
+    Dipakai LyricsChain untuk skip pencarian (menghemat rate-limit) selama
+    TTL negative cache belum habis.
+    """
+    cache_key = _hash_key(track_title, artist or "", isrc or "")
+    try:
+        with _LOCK, _get_connection() as conn:
+            row = conn.execute(
+                "SELECT expires_at FROM lyrics_negative_cache WHERE cache_key = ?",
+                (cache_key,),
+            ).fetchone()
+            if row is None:
+                return False
+            if int(time.time()) > row[0]:
+                conn.execute(
+                    "DELETE FROM lyrics_negative_cache WHERE cache_key = ?", (cache_key,)
+                )
+                conn.commit()
+                return False
+            return True
+    except Exception as e:
+        _log.warning("Negative cache read error: %s", e)
+        return False
+
+
+def clear_negative_cache() -> int:
+    """Hapus semua entry negative cache (mis. setelah provider baru ditambahkan)."""
+    try:
+        with _LOCK, _get_connection() as conn:
+            cur = conn.execute("DELETE FROM lyrics_negative_cache")
+            conn.commit()
+            return cur.rowcount or 0
+    except Exception as e:
+        _log.warning("Negative cache clear error: %s", e)
+        return 0
+
+
+# ============================================================================
 # Maintenance
 # ============================================================================
 
@@ -319,11 +411,18 @@ def get_cache_stats() -> dict:
         with _get_connection() as conn:
             t_count = conn.execute("SELECT COUNT(*) FROM translation_cache").fetchone()[0]
             l_count = conn.execute("SELECT COUNT(*) FROM lyrics_cache").fetchone()[0]
+            try:
+                neg_count = conn.execute(
+                    "SELECT COUNT(*) FROM lyrics_negative_cache"
+                ).fetchone()[0]
+            except Exception:
+                neg_count = 0
         db_path = _get_db_path()
         db_size = db_path.stat().st_size if db_path.exists() else 0
         return {
             "translation_count": t_count,
             "lyrics_count": l_count,
+            "negative_count": neg_count,
             "db_size_bytes": db_size,
             "db_path": str(db_path),
         }
@@ -344,6 +443,10 @@ def clear_all_cache() -> None:
         with _LOCK, _get_connection() as conn:
             conn.execute("DELETE FROM translation_cache")
             conn.execute("DELETE FROM lyrics_cache")
+            try:
+                conn.execute("DELETE FROM lyrics_negative_cache")
+            except Exception:
+                pass
             conn.commit()
         _log.info("All cache cleared")
     except Exception as e:
