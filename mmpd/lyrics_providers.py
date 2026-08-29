@@ -73,6 +73,47 @@ def call_with_timeout(fn, *args, timeout: float = _PROVIDER_CALL_TIMEOUT, **kwar
         ) from e
 
 
+# Fase R: HTTP GET dengan retry + exponential backoff untuk 429/5xx.
+# Semua provider requests-based memakai helper ini supaya rate-limit YouTube
+# Music / Musixmatch tidak langsung mematikan seluruh chain.
+_RETRYABLE_STATUS = {429, 500, 502, 503, 504}
+_MAX_RETRIES = 3
+_BACKOFF_BASE = 1.5  # detik; total tunggu maks ~1.5+3+4.5 ≈ 9 detik
+
+
+def request_with_backoff(requests_module, url: str, **kwargs):
+    """HTTP GET dengan retry eksponensial untuk status 429/5xx.
+
+    Args:
+        requests_module: modul requests (injectable untuk testing)
+        url: URL lengkap
+        **kwargs: diteruskan ke requests.get (timeout, params, headers, ...)
+
+    Returns:
+        Response object (status bisa saja non-2xx final — caller cek sendiri)
+    """
+    kwargs.setdefault("timeout", (10, 30))
+    last_exc: Optional[Exception] = None
+    for attempt in range(_MAX_RETRIES + 1):
+        try:
+            res = requests_module.get(url, **kwargs)
+            if res.status_code not in _RETRYABLE_STATUS:
+                return res
+            get_logger().debug(
+                "HTTP %d untuk %s (attempt %d/%d) — backoff %.1fs",
+                res.status_code, url[:80], attempt + 1, _MAX_RETRIES + 1,
+                _BACKOFF_BASE * (attempt + 1),
+            )
+        except Exception as e:  # network error (timeout, DNS, dsb)
+            last_exc = e
+            res = None
+        if attempt < _MAX_RETRIES:
+            time.sleep(_BACKOFF_BASE * (attempt + 1))
+    if res is not None:
+        return res  # status final setelah retry habis
+    raise last_exc if last_exc else RuntimeError(f"request gagal: {url[:80]}")
+
+
 def provider_is_tripped(name: str) -> bool:
     """True jika provider sudah gagal >= threshold kali berturut-turut (skip sisa sesi)."""
     return _PROVIDER_FAILS.get(name, 0) >= _PROVIDER_FAIL_THRESHOLD
@@ -158,7 +199,9 @@ class LrclibProvider:
         """Search by ISRC code (paling akurat)."""
         try:
             url = f"{self.BASE_URL}/get?isrc={isrc}"
-            res = requests_module.get(url, timeout=self.REQUEST_TIMEOUT, headers={"User-Agent": "mmpd/3.1"})
+            res = request_with_backoff(
+                requests_module, url, headers={"User-Agent": f"mmpd/{_mmpd_version()}"}
+            )
             if res.status_code == 404:
                 return None
             res.raise_for_status()
@@ -179,11 +222,11 @@ class LrclibProvider:
                 params["duration"] = str(int(track.duration))
 
             url = f"{self.BASE_URL}/get"
-            res = requests_module.get(
+            res = request_with_backoff(
+                requests_module,
                 url,
                 params=params,
-                timeout=self.REQUEST_TIMEOUT,
-                headers={"User-Agent": "mmpd/3.1"},
+                headers={"User-Agent": f"mmpd/{_mmpd_version()}"},
             )
             if res.status_code == 404:
                 return None
@@ -202,10 +245,10 @@ class LrclibProvider:
                 return None
 
             url = f"{self.BASE_URL}/search?q={quote(query)}"
-            res = requests_module.get(
+            res = request_with_backoff(
+                requests_module,
                 url,
-                timeout=self.REQUEST_TIMEOUT,
-                headers={"User-Agent": "mmpd/3.1"},
+                headers={"User-Agent": f"mmpd/{_mmpd_version()}"},
             )
             res.raise_for_status()
             items = res.json()
@@ -264,7 +307,9 @@ class MusixmatchProvider:
 
         try:
             url = f"{self.BASE_URL}/token.get?app_id={self.APP_ID}"
-            res = requests_module.get(url, timeout=self.REQUEST_TIMEOUT, headers={"User-Agent": "Mozilla/5.0"})
+            res = request_with_backoff(
+                requests_module, url, headers={"User-Agent": "Mozilla/5.0"}
+            )
             res.raise_for_status()
             data = res.json()
             token = data.get("message", {}).get("body", {}).get("user_token")
@@ -305,7 +350,11 @@ class MusixmatchProvider:
 
         try:
             url = f"{self.BASE_URL}/macro.subtitles.get"
-            res = requests.get(url, params=params, timeout=self.REQUEST_TIMEOUT, headers={"User-Agent": "Mozilla/5.0"})
+            # Fase R: pakai backoff untuk 429/5xx (Musixmatch rate-limit agresif)
+            res = request_with_backoff(
+                requests, url, params=params,
+                headers={"User-Agent": "Mozilla/5.0"},
+            )
             res.raise_for_status()
             data = res.json()
 
@@ -580,6 +629,15 @@ class LyricsChain:
         except Exception:
             pass
         return None
+
+
+def _mmpd_version() -> str:
+    """User-Agent version string dari mmpd.__version__ (bukan hardcode)."""
+    try:
+        from mmpd import __version__
+        return __version__
+    except ImportError:
+        return "dev"
 
 
 def build_default_chain(title: str = "") -> LyricsChain:
