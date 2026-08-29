@@ -171,13 +171,15 @@ Tidak bisa membaca huruf Kanji/Hanzi/Hangul? Sistem akan mendeteksi bahasa otoma
 Timestamp karaoke `[00:00.00]` tetap utuh, tidak rusak.
 
 ### 3. Terjemahan Lirik Bilingual (Google Translate + MyMemory)
-Terjemahan setiap baris lirik ke **Bahasa Indonesia**, ditambahkan tepat di bawah teks asli dengan timestamp identik (standar LRC bilingual):
+1. Mode lyric dan terjemah dalam satu baris :
+```
+[00:01.22] I'm here / Aku disini
+```
+2.Terjemahan ditambahkan tepat di bawah lyric asli dengan timestamp identik :
 ```
 [00:01.23] Hello world
 [00:01.23] Halo dunia
 ```
-
-**Dual-engine translation**: Google Translate (utama) → MyMemory (fallback kalau Google rate-limit). Terjemahan SELALU dikerjakan dari **aksara asli** (snapshot sebelum transliterasi) — bukan dari pinyin/romaji — supaya akurasi maksimal. Hasil di-cache di SQLite (tidak pernah expire) — re-translate lirik yang sama = 100% cache hit, skip API call.
 
 ### 4. Concurrent Downloads (3x Speedup)
 Download playlist Spotify dengan 3 worker paralel (ThreadPoolExecutor). Playlist 50 lagu: ~250s (sequential) → ~85s (concurrent).
