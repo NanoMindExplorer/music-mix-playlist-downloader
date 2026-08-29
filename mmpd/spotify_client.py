@@ -15,7 +15,7 @@ Setup:
 
 Backward compatibility:
     - Kalau spotipy tidak terinstal ATAU env vars tidak ada,
-      otomatis fallback ke legacy scraping via spotify_parser.py
+      otomatis fallback ke scraping internal via _scrape_embed
 """
 
 from __future__ import annotations

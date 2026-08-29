@@ -136,7 +136,8 @@ TRANSLITERATE_CHOICES: List[str] = [
     "❌ 1. Biarkan Aslinya (Jangan diubah)",
     "🇯🇵 2. Ya, Ubah Huruf Jepang ke Romaji (Khusus Lagu Jepang/Anime)",
     "🇨🇳 3. Ya, Ubah Huruf Mandarin ke Pinyin (Khusus Lagu China)",
-    "🤖 4. Deteksi Otomatis & Ubah Semua (Khusus Playlist Campur/Berbagai Negara)",
+    "🇭🇰 4. Ya, Ubah Huruf Kanton ke Jyutping (Khusus Lagu Hong Kong/Cantopop)",
+    "🤖 5. Deteksi Otomatis & Ubah Semua (Khusus Playlist Campur/Berbagai Negara)",
 ]
 
 # Pilihan format audio

@@ -54,6 +54,15 @@ def clean_search_query(title: str) -> str:
     result = _PROMO_RE.sub("", result)
     # Trim + collapse multiple spaces
     result = _MULTI_SPACE_RE.sub(" ", result).strip()
+    
+    # B6: Normalisasi OpenCC
+    try:
+        import opencc
+        converter = opencc.OpenCC('t2s')
+        result = converter.convert(result)
+    except Exception:
+        pass
+        
     return result
 
 
