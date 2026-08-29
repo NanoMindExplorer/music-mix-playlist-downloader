@@ -1,7 +1,11 @@
+# Python
 venv/
-downloads/
+.venv/
 __pycache__/
 *.pyc
+*.egg-info/
+build/
+dist/
 
 # Test artifacts
 .coverage
@@ -10,9 +14,6 @@ htmlcov/
 .mypy_cache/
 .ruff_cache/
 coverage.xml
-*.egg-info/
-build/
-dist/
 
 # IDE
 .vscode/
@@ -21,4 +22,33 @@ dist/
 *.swo
 .DS_Store
 
+# Backup & temp files (Fase H: mencegah file .bak / sampah masuk repo lagi)
+*.bak
+*.orig
+*.rej
+temp_meta_*
+temp_*.mp3
+temp_*.flac
+api_cover_*.jpg
+cropped_*.jpg
 .cache
+test.lrc
+*.id.lrc
+
+# Media test assets (jangan commit binary sampah ke repo)
+*.webp
+*.jpg
+*.jpeg
+!docs/**/*.jpg
+!docs/**/*.png
+
+# Spotify token cache
+.spotify_cache*.json
+
+# Environ & kredensial (jangan pernah commit)
+.env
+*.env
+config.toml
+
+# OS
+Thumbs.db

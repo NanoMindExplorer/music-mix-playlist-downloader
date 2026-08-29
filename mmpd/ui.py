@@ -34,8 +34,15 @@ custom_theme = questionary.Style([
 
 def print_banner() -> None:
     """Cetak banner ala Antigravity CLI dengan logo headphone."""
+    # P0/Fase H: versi dibaca dari mmpd.__version__ (single source of truth),
+    # bukan hardcode "v3.1" yang sudah basi sejak lama.
+    try:
+        from mmpd import __version__ as _mmpd_version
+    except ImportError:
+        _mmpd_version = "dev"
+
     console.clear()
-    
+
     # ASCII Headphone (Generated with Artem)
     headphone_art = [
         r"       .-----------------------------------------.       ",
@@ -50,24 +57,24 @@ def print_banner() -> None:
         r"|     |          [  |  |  |  |  |  |  ]           |     |",
         r" \___/                                             \___/ "
     ]
-    
+
     # Antigravity/Gemini gradient colors (Blue to Magenta)
     gradient = ["#4285F4", "#5C6BC0", "#7E57C2", "#AB47BC", "#D81B60", "#EC407A"]
-    
+
     banner = Text()
     banner.append("\n")
     for i, line in enumerate(headphone_art):
         color = gradient[i % len(gradient)]
         banner.append(line + "\n", style=f"bold {color}")
-        
+
     banner.append("\n")
     banner.append("Music Mix Playlist Downloader\n", style="bold white")
     banner.append("High-Fidelity Audio Engine\n\n", style="dim white")
     banner.append("Artfully Crafted by ", style="dim white")
     banner.append("NanoMindExplorer", style="bold #4285F4")
-    
+
     banner.justify = "center"
-    
+
     console.print(
         Panel(
             banner,
@@ -76,7 +83,7 @@ def print_banner() -> None:
             padding=(1, 4),
             title="[bold white] 🎵 YT AUDIO DOWNLOADER PRO [/bold white]",
             title_align="center",
-            subtitle="[bold white]v3.1[/bold white] [dim]• Interactive CLI & Retrofit Engine[/dim]",
+            subtitle=f"[bold white]v{_mmpd_version}[/bold white] [dim]• Interactive CLI & Retrofit Engine[/dim]",
             subtitle_align="center",
         )
     )

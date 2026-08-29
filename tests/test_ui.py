@@ -35,10 +35,10 @@ class TestUIConstants:
         from mmpd.ui import LYRICS_MODE_CHOICES
         assert len(LYRICS_MODE_CHOICES) == 4
 
-    def test_transliterate_choices_has_4(self):
-        """Test TRANSLITERATE_CHOICES punya 4 pilihan."""
+    def test_transliterate_choices_has_5(self):
+        """Test TRANSLITERATE_CHOICES punya 5 pilihan (Jyutping ditambah Fase B)."""
         from mmpd.ui import TRANSLITERATE_CHOICES
-        assert len(TRANSLITERATE_CHOICES) == 4
+        assert len(TRANSLITERATE_CHOICES) == 5
 
     def test_format_options_has_4(self):
         """Test FORMAT_OPTIONS punya 4 format."""

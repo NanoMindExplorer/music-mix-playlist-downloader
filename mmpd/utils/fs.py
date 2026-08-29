@@ -14,7 +14,7 @@ import os
 import re
 import tempfile
 from pathlib import Path
-from typing import Iterable, List, Optional
+from typing import List, Optional
 
 from mmpd.logger import get_logger
 

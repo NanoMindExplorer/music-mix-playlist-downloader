@@ -30,7 +30,7 @@ import sys
 # yt-dlp import akan raise ModuleNotFoundError kalau belum terinstal.
 # Tampilkan pesan error yang user-friendly.
 try:
-    import yt_dlp
+    import yt_dlp  # noqa: F401 — import disengaja: cek ketersediaan dependency
 except ModuleNotFoundError:
     print("\n❌ Modul 'yt_dlp' belum terinstal!")
     print("Silakan jalankan perintah berikut untuk menginstal pembaruan:")
@@ -39,7 +39,7 @@ except ModuleNotFoundError:
 
 # syncedlyrics dengan timeout patch (sama seperti Fase 1)
 try:
-    import syncedlyrics
+    import syncedlyrics  # noqa: F401 — cek ketersediaan dependency
     from syncedlyrics.providers.base import TimeoutSession
 
     def custom_request(self, method, url, **kwargs):
@@ -59,9 +59,8 @@ except ModuleNotFoundError:
 # Caller lama yang `from downloader import run_cli` tetap berfungsi.
 # ============================================================================
 
-from mmpd.config import get_default_path  # backward-compat: masih dipakai beberapa caller
-from mmpd.ui import console, custom_theme  # backward-compat: dipakai test/script lama
-from mmpd.ytdlp import YTDLPLogger
+from mmpd.ui import console  # backward-compat: dipakai test/script lama
+
 
 # Import lazy agar `python -m mmpd --version` cepat tanpa import yt_dlp dkk.
 def run_cli() -> None:
@@ -83,7 +82,7 @@ def run_organizer() -> None:
 
 
 # Re-export lyrics functions (dipakai oleh test/script lama)
-from mmpd.lyrics import (
+from mmpd.lyrics import (  # noqa: E402,F401 — re-export backward-compat (setelah blok try-import dependency)
     fetch_synced_lyrics,
     process_translation,
     process_transliteration,
@@ -91,8 +90,9 @@ from mmpd.lyrics import (
 )
 
 # Re-export utils (dipakai oleh test/script lama)
-from mmpd.utils.fs import atomic_write_text as _atomic_write_text  # backward-compat alias
-
+from mmpd.utils.fs import (  # noqa: E402,F401 — backward-compat alias
+    atomic_write_text as _atomic_write_text,
+)
 
 # ============================================================================
 # Entry points
@@ -102,40 +102,20 @@ def main() -> None:
     """
     Entry point untuk `mmpd` console script (setelah `pip install .`).
 
+    Fase C: seluruh dispatch subcommand sekarang ada di mmpd.cli (argparse).
+    File ini tetap sebagai thin wrapper untuk backward compatibility.
+
     Mendukung subcommand:
-        mmpd             # mode interaktif (sama dengan `python downloader.py`)
-        mmpd doctor      # jalankan diagnostik
-        mmpd --version   # cetak versi
-
-    Backward compatible: `python downloader.py` tetap panggil `run_cli()` langsung.
+        mmpd                          # mode interaktif (sama dengan `python downloader.py`)
+        mmpd download|retrofit|lyrics # mode non-interaktif (Fase C)
+        mmpd cache|config             # utilitas
+        mmpd doctor                   # jalankan diagnostik
+        mmpd self-update              # update non-destruktif (Fase C)
+        mmpd --version                # cetak versi
     """
-    args = sys.argv[1:]
-
-    # Subcommand: doctor
-    if args and args[0] == "doctor":
-        try:
-            from mmpd.doctor import run_doctor
-            sys.exit(run_doctor())
-        except ImportError:
-            print("❌ Subcommand 'doctor' butuh mmpd/ package terinstal.")
-            print("   Jalankan: pip install -e . (atau pip install -U -r requirements.txt)")
-            sys.exit(1)
-
-    # Subcommand: --version / -V
-    if args and args[0] in ("--version", "-V"):
-        try:
-            from mmpd import __version__
-            print(f"mmpd {__version__}")
-        except ImportError:
-            print("mmpd 3.2.0 (fallback)")
-        sys.exit(0)
-
-    # Default: jalankan CLI utama
     try:
-        from mmpd.logger import setup_logging
-        import logging
-        setup_logging(level=logging.WARNING, enable_console=True)
-        run_cli()
+        from mmpd.cli import main as cli_main
+        sys.exit(cli_main())
     except KeyboardInterrupt:
         console.print("\n\n[bold red]Aplikasi dihentikan secara paksa (Ctrl+C).[/bold red]")
         sys.exit(0)
