@@ -30,7 +30,7 @@ import sys
 # yt-dlp import akan raise ModuleNotFoundError kalau belum terinstal.
 # Tampilkan pesan error yang user-friendly.
 try:
-    import yt_dlp
+    import yt_dlp  # noqa: F401 — import disengaja: cek ketersediaan dependency
 except ModuleNotFoundError:
     print("\n❌ Modul 'yt_dlp' belum terinstal!")
     print("Silakan jalankan perintah berikut untuk menginstal pembaruan:")
@@ -39,7 +39,7 @@ except ModuleNotFoundError:
 
 # syncedlyrics dengan timeout patch (sama seperti Fase 1)
 try:
-    import syncedlyrics
+    import syncedlyrics  # noqa: F401 — cek ketersediaan dependency
     from syncedlyrics.providers.base import TimeoutSession
 
     def custom_request(self, method, url, **kwargs):
@@ -59,9 +59,8 @@ except ModuleNotFoundError:
 # Caller lama yang `from downloader import run_cli` tetap berfungsi.
 # ============================================================================
 
-from mmpd.config import get_default_path  # backward-compat: masih dipakai beberapa caller
-from mmpd.ui import console, custom_theme  # backward-compat: dipakai test/script lama
-from mmpd.ytdlp import YTDLPLogger
+from mmpd.ui import console  # backward-compat: dipakai test/script lama
+
 
 # Import lazy agar `python -m mmpd --version` cepat tanpa import yt_dlp dkk.
 def run_cli() -> None:
@@ -83,7 +82,7 @@ def run_organizer() -> None:
 
 
 # Re-export lyrics functions (dipakai oleh test/script lama)
-from mmpd.lyrics import (
+from mmpd.lyrics import (  # noqa: E402,F401 — re-export backward-compat (setelah blok try-import dependency)
     fetch_synced_lyrics,
     process_translation,
     process_transliteration,
@@ -91,8 +90,9 @@ from mmpd.lyrics import (
 )
 
 # Re-export utils (dipakai oleh test/script lama)
-from mmpd.utils.fs import atomic_write_text as _atomic_write_text  # backward-compat alias
-
+from mmpd.utils.fs import (  # noqa: E402,F401 — backward-compat alias
+    atomic_write_text as _atomic_write_text,
+)
 
 # ============================================================================
 # Entry points

@@ -32,11 +32,45 @@ winget install ffmpeg; git clone https://github.com/NanoMindExplorer/music-mix-p
 ### 🚀 Setelah Install
 
 ```bash
-mmpd                  # jalankan aplikasi (mode interaktif)
-mmpd doctor           # cek semua dependency & network
+mmpd                  # jalankan aplikasi (mode interaktif — perilaku lama)
 mmpd --version        # cetak versi
+mmpd doctor           # cek semua dependency & network
+mmpd self-update      # update non-destruktif (git pull + pip install -U -e .)
 python downloader.py  # alternatif (backward compatible)
 ```
+
+### ⌨️ CLI Non-Interaktif (baru di v4.1 — Fase C)
+
+Semua operasi utama sekarang bisa dijalankan tanpa menu interaktif (cocok untuk script / termux):
+
+```bash
+# Download non-interaktif dengan lirik + terjemahan
+mmpd download "https://youtube.com/watch?v=..." --format flac \
+    --lyrics musixmatch --translate --transliterate auto --lrc-format pisah
+
+# Retrofit koleksi lama: HANYA suntik terjemahan (aman, tidak fetch ulang lirik)
+mmpd retrofit --dir ~/storage/downloads/YT_Downloader \
+    --lyrics-only --translate --lrc-format pisah
+
+# Retrofit penuh (lirik + cover), timpa lirik lama hanya kalau mau (backup .bak otomatis)
+mmpd retrofit --dir ~/storage/downloads/YT_Downloader --translate --workers 2
+
+# Suntik terjemahan ke file .lrc saja (alias ringkas)
+mmpd lyrics --dir ~/storage/downloads/YT_Downloader --translate
+
+# Rapikan file audio+lrc → Music/Musiclrc (dry-run dulu untuk preview)
+mmpd organize --dir ~/storage/downloads --dry-run
+
+# Kelola cache
+mmpd cache --stats
+mmpd cache --clear-negative   # paksa cari ulang lirik yang tadinya tidak ditemukan
+
+# Konfigurasi (config.toml di ~/.config/mmpd/)
+mmpd config --create-example
+mmpd config                  # tampilkan config aktif
+```
+
+**Prinsip safety (Fase L):** secara default retrofit **tidak pernah menimpa** file `.lrc` lama — hanya menambah terjemahan. Menimpa harus eksplisit via `--overwrite` (backup `.lrc.bak` selalu dibuat). Lirik juga ditanam ke tag audio (USLT/SYLT) sehingga muncul di player yang tidak membaca file `.lrc` sampingan.
 
 ---
 

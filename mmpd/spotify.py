@@ -56,7 +56,7 @@ def parse_spotify_url_safe(url: str) -> List[str]:
     try:
         from mmpd.spotify_client import get_spotify_client
         client = get_spotify_client()
-        
+
         _log.info("Spotify: Parsing URL")
         tracks = client.parse_url(url)
         if tracks:
@@ -97,9 +97,9 @@ def parse_spotify_url_v2(url: str):
         return []
 
     try:
-        from mmpd.spotify_client import get_spotify_client, SpotifyTrack
+        from mmpd.spotify_client import get_spotify_client
         client = get_spotify_client()
-        
+
         _log.info("Spotify v2: Parsing URL")
         tracks = client.parse_url(url)
         if tracks:

@@ -28,7 +28,7 @@ __author__ = "NanoMindExplorer"
 __license__ = "MIT"
 
 __all__: list[str] = [
-    "__version__",
     "__author__",
     "__license__",
+    "__version__",
 ]

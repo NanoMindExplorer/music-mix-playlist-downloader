@@ -115,17 +115,17 @@ def _get_connection() -> sqlite3.Connection:
         c.commit()
 
     global _DB_INITIALIZED, _GLOBAL_CONN
-    
+
     with _LOCK:
         if _GLOBAL_CONN is not None:
             return _GLOBAL_CONN
-            
+
         db_path = _get_db_path()
         conn = sqlite3.connect(str(db_path), timeout=30.0, check_same_thread=False)
         _init_db(conn)
         _DB_INITIALIZED = True
         _GLOBAL_CONN = conn
-            
+
     return conn
 
 
@@ -461,6 +461,6 @@ def reset_cache_singleton() -> None:
     if globals().get('_GLOBAL_CONN') is not None:
         try:
             _GLOBAL_CONN.close()
-        except:
+        except Exception:
             pass
     _GLOBAL_CONN = None

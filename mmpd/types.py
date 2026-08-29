@@ -14,8 +14,49 @@ Tujuan:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional, Protocol, runtime_checkable
+
+
+@dataclass(frozen=True)
+class LyricLine:
+    """
+    Satu baris lirik ter-struktur (Fase A / P2).
+
+    Model tunggal untuk pipeline lirik — menggantikan manipulasi string rawak
+    terhadap baris LRC mentah di banyak tempat. Semua tahap pipeline
+    (fetch → translate → transliterate → format) memakai model ini.
+
+    Field:
+        ts:       timestamp dalam DETIK (mis. 61.5 untuk [01:01.50]); None =
+                  baris tanpa timestamp (metadata [ti:..] dsb.)
+        original: teks aksara ASLI (Hanzi/Kana/Hangul/Thai) — sumber terjemahan
+        latin:    teks hasil transliterasi (pinyin/romaji/jyutping); None kalau
+                  belum di-transliterasi
+        id_text:  terjemahan Bahasa Indonesia (None kalau belum diterjemahkan)
+    """
+
+    ts: Optional[float]
+    original: str = ""
+    latin: Optional[str] = None
+    id_text: Optional[str] = None
+
+    @property
+    def display(self) -> str:
+        """Teks tampilan: versi latin kalau ada, kalau tidak aksara asli."""
+        return self.latin if self.latin else self.original
+
+    @property
+    def has_translation(self) -> bool:
+        return bool(self.id_text and self.id_text.strip())
+
+    def to_lrc_line(self) -> str:
+        """Render kembali ke satu baris LRC '[mm:ss.cc]teks'."""
+        if self.ts is None:
+            return self.original
+        mins = int(self.ts // 60)
+        secs = self.ts % 60
+        return f"[{mins:02d}:{secs:05.2f}]{self.display}"
 
 
 @dataclass(frozen=True)
