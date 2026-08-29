@@ -115,13 +115,17 @@ jobs:
       image: python:3.14-slim
     needs: test
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
+      # Install git SEBELUM checkout: image python:3.14-slim TIDAK menyertakan
+      # git, dan tanpa git actions/checkout fallback ke download tarball via
+      # REST API (hasilnya workspace TANPA folder .git) → test self-update
+      # gagal dan smoke test tidak merepresentasikan Termux asli (yang punya git).
       - name: Install system deps (FFmpeg, Git)
         run: |
           apt-get update
           apt-get install -y ffmpeg git
+
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Install mmpd
         run: |

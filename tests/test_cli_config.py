@@ -263,7 +263,36 @@ class TestSelfUpdate:
         from mmpd.self_update import _find_repo_root
         root = _find_repo_root()
         assert root is not None, "Test jalan dari dalam repo — root harus ketemu"
-        assert (root / ".git").exists()
+        # Marker project root: pyproject.toml ( CI container tanpa git
+        # melakukan checkout tarball → .git bisa absen, pyproject tetap ada)
+        assert (root / "pyproject.toml").exists(), "Root harus berisi pyproject.toml"
+
+    def test_find_repo_root_without_git_marker_fallback(self, tmp_path, monkeypatch):
+        """Source tree tanpa .git (tarball/zip) → root tetap ketemu via marker."""
+        from mmpd import self_update as su
+
+        src = tmp_path / "src"
+        pkg = src / "mmpd"
+        pkg.mkdir(parents=True)
+        (src / "pyproject.toml").write_text(
+            '[project]\nname = "music-mix-playlist-downloader"\n', encoding="utf-8"
+        )
+        (pkg / "__init__.py").touch()
+        # __file__ dipalsukan seolah mmpd terpasang di src/mmpd/
+        monkeypatch.setattr(su, "__file__", str(pkg / "self_update.py"))
+
+        root = su._find_repo_root()
+        assert root == src, "Fallback marker pyproject+mmpd harus menemukan root"
+
+    def test_find_repo_root_none_for_plain_dir(self, tmp_path, monkeypatch):
+        """Instalasi wheel biasa di site-packages → None (self-update tak berlaku)."""
+        from mmpd import self_update as su
+
+        sp = tmp_path / "lib" / "python3.14" / "site-packages" / "mmpd"
+        sp.mkdir(parents=True)
+        monkeypatch.setattr(su, "__file__", str(sp / "self_update.py"))
+
+        assert su._find_repo_root() is None
 
     def test_run_is_safe_function(self):
         from mmpd.self_update import self_update
