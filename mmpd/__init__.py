@@ -23,7 +23,7 @@ dan `mmpd --version` membacanya dari sini. Jangan hardcode versi di tempat lain.
 
 from __future__ import annotations
 
-__version__ = "4.1.0"
+__version__ = "4.2.0"
 __author__ = "NanoMindExplorer"
 __license__ = "MIT"
 
