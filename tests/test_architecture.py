@@ -189,7 +189,7 @@ class TestOrganizerRecursive:
         assert code == 0
         # File terpindah ke Music/Musiclrc
         assert not (downloads / "song.mp3").exists()
-        music = tmp_path / "Downloads" / "Music"
+        music = tmp_path / "storage" / "shared" / "Music"
         assert (music / "song.mp3").exists()
         assert (music / "Musiclrc" / "song.lrc").exists()
         assert (music / "other.flac").exists()
