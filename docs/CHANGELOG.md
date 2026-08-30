@@ -1,5 +1,29 @@
 # Changelog
 
+## [4.2.0] — 2026-08-30
+
+### Added
+- Subcommand `mmpd completion bash|zsh|fish` + skrip tab-completion resmi untuk `mmpd`.
+- `mmpd download --isrc/--no-isrc --concurrent` — path Spotify non-interaktif memakai ISRC matching (sama dengan menu).
+- Flag global `--quiet` / `-q`.
+- `mmpd config --credentials-path`.
+- `--translate` / `--no-translate` (BooleanOptionalAction) agar config.toml jadi default.
+
+### Fixed
+- `mmpd lyrics` mengembalikan jumlah file sebagai exit code (sekarang selalu 0/1).
+- `mmpd organize` non-interaktif masih memanggil prompt konfirmasi.
+- `mmpd doctor` tidak memuat `credentials.toml` sehingga cek Spotify bisa salah.
+- Menu interaktif mengabaikan `output_dir` di config.toml.
+
+### Changed
+- Default CLI mengikuti `[lyrics]` di config.toml jika flag tidak diisi.
+- Download non-interaktif menolak jalan tanpa FFmpeg (pesan jelas).
+- Versi `4.2.0`.
+
+### Removed
+- Artefak `artem` (completion + man page proyek lain) diganti aset `mmpd`.
+
+
 ## [4.0.1] — 2026-08-28
 
 ### Fixed

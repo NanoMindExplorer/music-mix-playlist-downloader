@@ -108,6 +108,7 @@ def run_organizer(
     folder: Optional[str] = None,
     recursive: bool = True,
     dry_run: bool = False,
+    confirm: bool = True,
 ) -> int:
     """
     Jalankan Mode 3: Auto-Organizer (interaktif, dengan konfirmasi).
@@ -181,17 +182,18 @@ def run_organizer(
         console.print("[bold yellow]🔍 DRY-RUN: tidak ada file yang dipindahkan.[/bold yellow]")
         return 0
 
-    # Konfirmasi via ask_confirm; di environment non-interaktif (pipe/CI/test)
-    # prompt akan EOF → auto-proceed dengan default (True).
-    try:
-        confirmed = ask_confirm(
-            "▶️ Mulai proses perapian (Ganti Nama Otomatis & Pindahkan ke Folder Musik)?",
-            default=True,
-        )
-    except (EOFError, Exception):
-        confirmed = True
-    if confirmed is False:
-        return 0
+    # CLI non-interaktif (confirm=False) skip prompt.
+    # Interaktif: EOF/CI → auto-proceed dengan default True.
+    if confirm:
+        try:
+            confirmed = ask_confirm(
+                "▶️ Mulai proses perapian (Ganti Nama Otomatis & Pindahkan ke Folder Musik)?",
+                default=True,
+            )
+        except (EOFError, Exception):
+            confirmed = True
+        if confirmed is False:
+            return 0
 
     os.makedirs(music_dir, exist_ok=True)
     os.makedirs(lrc_dir, exist_ok=True)
@@ -211,4 +213,4 @@ def run_organizer_noninteractive(
     dry_run: bool = False,
 ) -> int:
     """Alias non-interaktif untuk CLI `mmpd organize` (tanpa konfirmasi)."""
-    return run_organizer(folder=folder, recursive=recursive, dry_run=dry_run)
+    return run_organizer(folder=folder, recursive=recursive, dry_run=dry_run, confirm=False)

@@ -318,3 +318,48 @@ class TestSelfUpdate:
         assert code == 3, "Tree kotor harus ditolak dengan kode 3"
         # Tidak boleh sampai ke git pull
         assert not any(c[:2] == ["git", "pull"] for c in calls)
+
+
+class TestCLIPolish42:
+    def test_download_boolean_optional_translate(self):
+        parser = build_parser()
+        args = parser.parse_args(["download", "query"])
+        assert args.translate is None
+        args = parser.parse_args(["download", "query", "--no-translate"])
+        assert args.translate is False
+        args = parser.parse_args(["download", "query", "--translate"])
+        assert args.translate is True
+
+    def test_download_isrc_default_on(self):
+        parser = build_parser()
+        args = parser.parse_args(["download", "https://open.spotify.com/track/x"])
+        assert args.isrc is True
+        args = parser.parse_args(["download", "https://open.spotify.com/track/x", "--no-isrc"])
+        assert args.isrc is False
+
+    def test_completion_parser(self):
+        parser = build_parser()
+        args = parser.parse_args(["completion", "zsh"])
+        assert args.command == "completion"
+        assert args.shell == "zsh"
+
+    def test_completion_dispatch(self, capsys):
+        assert main(["completion", "bash"]) == 0
+        out = capsys.readouterr().out
+        assert "complete -F _mmpd mmpd" in out
+
+    def test_lyrics_exit_code_is_zero_not_count(self, tmp_path, monkeypatch):
+        from mmpd.modes import retrofit as rf
+        monkeypatch.setattr(rf, "run_translate_only", lambda **kwargs: 7)
+        assert main(["lyrics", "--dir", str(tmp_path)]) == 0
+
+    def test_config_credentials_path(self, capsys):
+        assert main(["config", "--credentials-path"]) == 0
+        out = capsys.readouterr().out.strip()
+        assert out.endswith("credentials.toml")
+
+    def test_quiet_global_flag_parses_before_command(self):
+        parser = build_parser()
+        args = parser.parse_args(["--quiet", "cache", "--stats"])
+        assert args.quiet is True
+        assert args.command == "cache"

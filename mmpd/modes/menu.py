@@ -32,7 +32,8 @@ from rich.progress import (
 )
 from rich.table import Table
 
-from mmpd.config import get_output_dir, is_termux
+from mmpd.config import is_termux
+from mmpd.config_loader import get_output_dir_from_config
 from mmpd.logger import get_logger
 from mmpd.lyrics import (
     fetch_synced_lyrics,
@@ -211,7 +212,7 @@ def _run_download_loop(mode: int) -> None:
             default=False,
         )
 
-    output_dir = get_output_dir()
+    output_dir = get_output_dir_from_config()
     archive_file = os.path.join(output_dir, "archive.txt")
 
     # === TAMPILKAN TABEL KONFIGURASI ===

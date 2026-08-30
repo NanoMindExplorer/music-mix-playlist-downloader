@@ -121,6 +121,12 @@ def run_doctor() -> int:
         1 = ada failure (FAIL)
         2 = hanya warning (WARN), no FAIL
     """
+    try:
+        from mmpd.config_loader import load_config
+        load_config()
+    except Exception:
+        pass
+
     print(f"\n{Color.BOLD}🎵 Music Mix Playlist Downloader Pro — Doctor v{__version__}{Color.RESET}")
     print(f"{Color.DIM}Python {sys.version.split()[0]} on {platform.system()} {platform.machine()}{Color.RESET}")
     print(f"{Color.DIM}PID: {os.getpid()}{Color.RESET}")
@@ -279,10 +285,10 @@ def run_doctor() -> int:
     else:
         print(f"\n{Color.BOLD}{Color.GREEN}✅ Semua check PASSED! Aplikasi siap digunakan.{Color.RESET}")
         print(_info("Cara pakai:"))
-        print(_info("   python downloader.py       # mode interaktif (lama)"))
-        print(_info("   python -m mmpd             # mode interaktif (baru)"))
-        print(_info("   mmpd                       # setelah `pip install .`"))
+        print(_info("   mmpd                       # menu interaktif"))
+        print(_info("   mmpd download URL --format mp3 --translate"))
         print(_info("   mmpd doctor                # re-run diagnostics ini"))
+        print(_info("   mmpd completion bash >> ~/.bashrc"))
         return 0
 
 

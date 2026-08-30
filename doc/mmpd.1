@@ -1,0 +1,41 @@
+.TH MMPD 1 "August 2026" "mmpd 4.2.0" "User Commands"
+.SH NAME
+mmpd \- Music Mix & Playlist Downloader
+.SH SYNOPSIS
+.B mmpd
+[\fI\,GLOBAL\/\fR]
+[\fI\,COMMAND\/\fR] [\fI\,OPTIONS\/\fR]
+.SH DESCRIPTION
+CLI untuk mengunduh audio YouTube/Spotify/SoundCloud beserta lirik LRC,
+transliterasi, dan terjemahan bilingual.
+Tanpa subcommand, mmpd membuka menu interaktif.
+.SH COMMANDS
+.TP
+.B download URL
+Unduh lagu atau playlist.
+.TP
+.B retrofit --dir DIR
+Suntik lirik/cover ke koleksi lama.
+.TP
+.B lyrics --dir DIR
+Suntik terjemahan ke file .lrc existing.
+.TP
+.B organize --dir DIR
+Rapikan audio dan .lrc.
+.TP
+.B cache
+Statistik atau bersihkan cache SQLite.
+.TP
+.B config
+Tampilkan atau buat contoh config.toml.
+.TP
+.B doctor
+Diagnostik dependensi dan jaringan.
+.TP
+.B self-update
+git pull --ff-only + pip install -U -e .
+.TP
+.B completion SHELL
+Cetak skrip tab-completion (bash, zsh, fish).
+.SH SEE ALSO
+README.md pada repositori proyek.
