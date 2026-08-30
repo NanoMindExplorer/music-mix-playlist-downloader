@@ -12,17 +12,17 @@ Salin & jalankan satu baris perintah di terminal Anda.
 
 ### 📱 Android (Termux)
 ```bash
-termux-setup-storage; pkg update -y && pkg install -y python ffmpeg git && git clone https://github.com/NanoMindExplorer/music-mix-playlist-downloader.git && cd music-mix-playlist-downloader && pip install -U -r requirements.txt --break-system-packages && pip install -e . --break-system-packages && echo "✅ Install sukses! Jalankan: mmpd"
+termux-setup-storage; pkg update -y && pkg install -y python ffmpeg git && git clone https://github.com/NanoMindExplorer/music-mix-playlist-downloader.git && cd music-mix-playlist-downloader && pip install -U -e . --break-system-packages && echo "✅ Install sukses! Jalankan: mmpd"
 ```
 
 ### 🐧 Linux (Ubuntu/Debian)
 ```bash
-sudo apt update && sudo apt install -y python3 python3-pip ffmpeg git && git clone https://github.com/NanoMindExplorer/music-mix-playlist-downloader.git && cd music-mix-playlist-downloader && pip3 install -U -r requirements.txt --break-system-packages && pip3 install -e . --break-system-packages && echo "✅ Install sukses! Jalankan: mmpd"
+sudo apt update && sudo apt install -y python3 python3-pip ffmpeg git && git clone https://github.com/NanoMindExplorer/music-mix-playlist-downloader.git && cd music-mix-playlist-downloader && pip3 install -U -e . --break-system-packages && echo "✅ Install sukses! Jalankan: mmpd"
 ```
 
 ### 🪟 Windows (PowerShell)
 ```powershell
-winget install ffmpeg; git clone https://github.com/NanoMindExplorer/music-mix-playlist-downloader.git; cd music-mix-playlist-downloader; pip install -U -r requirements.txt; pip install -e .; echo "✅ Install sukses! Jalankan: mmpd"
+winget install --id Gyan.FFmpeg -e --source winget; git clone https://github.com/NanoMindExplorer/music-mix-playlist-downloader.git; cd music-mix-playlist-downloader; pip install -U -e .; Write-Host "✅ Install sukses! Jalankan: mmpd"
 ```
 
 ---
