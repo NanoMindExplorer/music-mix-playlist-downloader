@@ -59,6 +59,34 @@ Download trek tunggal atau playlist dari SoundCloud dengan mudah.
 
 ---
 
+
+## 🔑 Cara Menambahkan Kredensial Spotify (Opsional)
+
+Untuk hasil pencocokan lagu yang jauh lebih akurat (hingga 99%) saat menggunakan **Mode Spotify**, sangat disarankan untuk menambahkan *Spotify API Credentials*. Tanpa kredensial ini, aplikasi hanya akan menebak lagu berdasarkan kemiripan judul.
+
+1. Kunjungi [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) dan *Log in* menggunakan akun Spotify Anda.
+2. Klik tombol **Create App**, isi nama dan deskripsi aplikasi secara bebas, centang persetujuan persyaratannya, lalu simpan.
+3. Buka aplikasi yang baru Anda buat, lalu klik tombol **Settings**.
+4. Anda akan melihat **Client ID**. Untuk melihat sandi rahasianya, klik **View Client Secret**.
+5. Salin kedua kode tersebut, lalu buka terminal Anda dan jalankan perintah berikut (ganti teks `KODE_...` dengan kode milik Anda):
+
+**Untuk Linux / Android (Termux):**
+```bash
+echo 'export SPOTIPY_CLIENT_ID="KODE_CLIENT_ID_ANDA"' >> ~/.bashrc
+echo 'export SPOTIPY_CLIENT_SECRET="KODE_CLIENT_SECRET_ANDA"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+**Untuk Windows (PowerShell):**
+```powershell
+[System.Environment]::SetEnvironmentVariable('SPOTIPY_CLIENT_ID', 'KODE_CLIENT_ID_ANDA', 'User')
+[System.Environment]::SetEnvironmentVariable('SPOTIPY_CLIENT_SECRET', 'KODE_CLIENT_SECRET_ANDA', 'User')
+```
+
+Setelah selesai, Anda dapat memverifikasinya dengan mengetik `mmpd doctor` di terminal. Jika berhasil, Anda akan melihat status kredensial telah disetel dengan tanda `[OK]` berwarna hijau.
+
+---
+
 ## 🎵 Aplikasi Pemutar Musik yang Disarankan
 
 Untuk mendapatkan pengalaman terbaik dalam mendengarkan lagu dan membaca lirik karaoke hasil unduhan, Anda dapat menggunakan aplikasi pemutar musik berikut:
