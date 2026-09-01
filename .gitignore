@@ -52,3 +52,7 @@ config.toml
 
 # OS
 Thumbs.db
+
+# Additional Spotify & Credentials safeguards
+.cache-*
+credentials.toml
