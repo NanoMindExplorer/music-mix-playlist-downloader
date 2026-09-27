@@ -1,98 +1,108 @@
 # 🎵 Music Mix & Playlist Downloader (mmpd)
 
-Aplikasi CLI interaktif untuk mendownload lagu dari YouTube, Spotify, dan SoundCloud menjadi audio berkualitas tinggi (MP3/FLAC/WAV). Dilengkapi **Lyrics Engine** yang cerdas untuk mencari lirik karaoke (LRC), menerjemahkan lirik, dan mengubah huruf asing (Jepang/Mandarin/Korea/Thai) menjadi huruf biasa.
+[![CI](https://github.com/NanoMindExplorer/music-mix-playlist-downloader/actions/workflows/ci.yml/badge.svg)](https://github.com/NanoMindExplorer/music-mix-playlist-downloader/actions)
+[![Python Version](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+An interactive CLI application to download songs, albums, and playlists from YouTube, Spotify, and SoundCloud into high-quality audio (MP3/FLAC/WAV). Powered by an intelligent **Lyrics Engine** that fetches synchronized karaoke lyrics (LRC), translates lyrics, and transliterates foreign scripts (Japanese, Chinese, Korean, Thai) into readable Romanized/Latin text.
 
 ---
 
-## ⚡ Instalasi Cepat
+## ⚡ Quick Installation
 
-Salin & jalankan satu baris perintah di terminal Anda.
+Copy & run the one-line command for your platform in your terminal:
 
-> ⚠️ **Catatan:** Untuk memperbarui aplikasi di kemudian hari, Anda cukup menjalankan perintah `mmpd self-update`. Jangan menjalankan ulang perintah instalasi di bawah ini untuk menghindari terhapusnya pengaturan Anda.
+> ⚠️ **Note:** To update the application later, simply run `mmpd self-update`. Do not re-run the installation commands below to avoid overwriting your custom configuration.
 
 ### 📱 Android (Termux)
 ```bash
-termux-setup-storage; pkg update -y && pkg install -y python ffmpeg git && git clone https://github.com/NanoMindExplorer/music-mix-playlist-downloader.git && cd music-mix-playlist-downloader && pip install -U -e . --break-system-packages && echo "✅ Install sukses! Jalankan: mmpd"
+termux-setup-storage; pkg update -y && pkg install -y python ffmpeg git && git clone https://github.com/NanoMindExplorer/music-mix-playlist-downloader.git && cd music-mix-playlist-downloader && pip install -U -e . --break-system-packages && echo "✅ Installation successful! Run: mmpd"
 ```
 
 ### 🐧 Linux (Ubuntu/Debian)
 ```bash
-sudo apt update && sudo apt install -y python3 python3-pip ffmpeg git && git clone https://github.com/NanoMindExplorer/music-mix-playlist-downloader.git && cd music-mix-playlist-downloader && pip3 install -U -e . --break-system-packages && echo "✅ Install sukses! Jalankan: mmpd"
+sudo apt update && sudo apt install -y python3 python3-pip ffmpeg git && git clone https://github.com/NanoMindExplorer/music-mix-playlist-downloader.git && cd music-mix-playlist-downloader && pip3 install -U -e . --break-system-packages && echo "✅ Installation successful! Run: mmpd"
 ```
 
 ### 🪟 Windows (PowerShell)
 ```powershell
-winget install --id Gyan.FFmpeg -e --source winget; git clone https://github.com/NanoMindExplorer/music-mix-playlist-downloader.git; cd music-mix-playlist-downloader; pip install -U -e .; Write-Host "✅ Install sukses! Jalankan: mmpd"
+winget install --id Gyan.FFmpeg -e --source winget; git clone https://github.com/NanoMindExplorer/music-mix-playlist-downloader.git; cd music-mix-playlist-downloader; pip install -U -e .; Write-Host "✅ Installation successful! Run: mmpd"
 ```
 
 ---
 
-## 🎮 Cara Penggunaan
+## 🎮 How to Use
 
-Setelah terinstal, cukup ketik `mmpd` di terminal Anda. Aplikasi akan menampilkan menu interaktif. Anda dapat memilih mode operasi menggunakan tombol panah atas/bawah pada keyboard Anda:
+Once installed, simply type `mmpd` in your terminal to launch the interactive interface. You can navigate the menu using your keyboard's arrow keys:
 
-### 📥 1. Mode Utama (YouTube)
-Download video tunggal, playlist, atau YouTube Mix. Cukup tempel URL atau **ketik judul lagu** langsung. File akan otomatis tersimpan di folder *Downloads/YT_Downloader*.
-
-### 🛠️ 2. Mode Retrofit (Perbaiki Lagu Lama)
-Punya koleksi MP3/FLAC lama tanpa cover art (sampul album) atau lirik? Mode ini akan memindai folder Anda, lalu otomatis mencari dan menyuntikkan lirik serta gambar cover ke dalam file lagu Anda.
-
-### 📁 3. Mode Pengatur Otomatis
-Merapikan file lirik (`.lrc`) dan musik Anda secara otomatis. Mencocokkan nama file lirik dengan file lagu, lalu memindahkannya ke folder musik dengan rapi.
-
-### 🎵 4. Mode Spotify
-Download lagu, album, atau playlist langsung dari URL Spotify. Cukup tempel URL dan aplikasi akan mencari versi terbaiknya di YouTube secara otomatis.
-
-### ☁️ 5. Mode SoundCloud
-Download trek tunggal atau playlist dari SoundCloud dengan mudah.
-
----
-
-## 🚀 Fitur Unggulan
-
-- **Format Audio Terbaik**: Mendukung MP3 (320kbps), FLAC (Lossless), WAV, atau format original bawaan YouTube.
-- **Transliterasi Otomatis**: Secara otomatis mendeteksi lagu berbahasa asing (Jepang, Mandarin, Korea, Thai, dll) dan mengubah lirik aslinya menjadi huruf biasa/latin agar mudah dibaca.
-- **Terjemahan Lirik (Bilingual)**: Menambahkan terjemahan lirik tepat di bawah lirik aslinya dengan waktu (timing karaoke) yang presisi.
-- **Lirik Lengkap & Sinkron**: Mendukung pencarian lirik karaoke (`.lrc`) yang tersinkronisasi otomatis untuk aplikasi pemutar musik modern.
-- **Download Paralel**: Mengunduh playlist besar jauh lebih cepat secara bersamaan (Concurrent Downloads).
-- **Aman Lintas-Platform**: Penamaan file otomatis disesuaikan agar aman digunakan di Windows, Linux, maupun Android.
-
----
-
-
-## 🔑 Cara Menambahkan Kredensial Spotify (Opsional)
-
-Untuk hasil pencocokan lagu yang jauh lebih akurat (hingga 99%) saat menggunakan **Mode Spotify**, sangat disarankan untuk menambahkan *Spotify API Credentials*. Tanpa kredensial ini, aplikasi hanya akan menebak lagu berdasarkan kemiripan judul.
-
-1. Kunjungi [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) dan *Log in* menggunakan akun Spotify Anda.
-2. Klik tombol **Create App**, isi nama dan deskripsi aplikasi secara bebas, centang persetujuan persyaratannya, lalu simpan.
-3. Buka aplikasi yang baru Anda buat, lalu klik tombol **Settings**.
-4. Anda akan melihat **Client ID**. Untuk melihat sandi rahasianya, klik **View Client Secret**.
-5. Salin kedua kode tersebut, lalu buka terminal Anda dan jalankan perintah berikut (ganti teks `KODE_...` dengan kode milik Anda):
-
-**Untuk Linux / Android (Termux):**
 ```bash
-echo 'export SPOTIPY_CLIENT_ID="KODE_CLIENT_ID_ANDA"' >> ~/.bashrc
-echo 'export SPOTIPY_CLIENT_SECRET="KODE_CLIENT_SECRET_ANDA"' >> ~/.bashrc
+mmpd                  # Interactive menu (5 modes)
+mmpd doctor           # Diagnostics & dependency check
+mmpd self-update      # Update to the latest release
+mmpd --version        # Display current version
+```
+
+### 📥 1. Main Mode (YouTube)
+Download single videos, playlists, or YouTube Mixes. Simply paste a URL or **type song titles** to search directly. Audio files are automatically saved to your *Downloads/YT_Downloader* directory.
+
+### 🛠️ 2. Retrofit Mode (Fix Existing Songs)
+Have an existing collection of MP3/FLAC files missing album artwork or lyrics? Retrofit mode scans your folder, searches for missing metadata, and automatically embeds album covers and synchronized lyrics into your tracks.
+
+### 📁 3. Auto Organizer Mode
+Automatically cleans up and organizes your lyrics (`.lrc`) and music files. Accurately matches lyric filenames with corresponding song files and moves them into your organized music folder.
+
+### 🎵 4. Spotify Mode
+Download tracks, albums, or playlists directly from Spotify URLs. Simply paste the link, and `mmpd` will find and download the highest-quality matching audio from YouTube automatically.
+
+### ☁️ 5. SoundCloud Mode
+Seamlessly download individual tracks or full playlists directly from SoundCloud.
+
+---
+
+## 🚀 Key Features
+
+- **High-Fidelity Audio**: Supports MP3 (up to 320kbps), FLAC (Lossless), WAV, or original source formats.
+- **Smart Transliteration**: Automatically detects foreign language lyrics (Japanese Romaji, Chinese Pinyin/Jyutping, Korean Romaja, Thai RTGS) and transliterates them into Latin characters for effortless reading.
+- **Bilingual Lyric Translation**: Adds lyric translations directly below original lines while preserving precise karaoke synchronization timing.
+- **Synchronized Karaoke Lyrics**: Downloads synchronized `.lrc` files compatible with modern desktop and mobile music players.
+- **Concurrent Downloads**: Multi-threaded parallel processing speeds up large playlist downloads significantly.
+- **Cross-Platform Safe**: Automatic filename sanitization ensures valid, safe filenames across Windows, Linux, and Android (Termux).
+
+---
+
+## 🔑 Spotify API Credentials (Optional)
+
+For significantly higher accuracy (up to 99% via ISRC & Spotify metadata matching) when using **Spotify Mode**, providing Spotify API credentials is recommended. Without credentials, track matching relies on title heuristics.
+
+1. Go to the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) and log in with your Spotify account.
+2. Click **Create App**, fill in any app name and description, accept the terms of service, and click **Save**.
+3. Open your newly created app and navigate to **Settings**.
+4. Locate your **Client ID**. Click **View Client Secret** to reveal and copy your secret key.
+5. In your terminal, run the following commands (replace `YOUR_...` with your actual credentials):
+
+**Linux / Android (Termux):**
+```bash
+echo 'export SPOTIPY_CLIENT_ID="YOUR_CLIENT_ID"' >> ~/.bashrc
+echo 'export SPOTIPY_CLIENT_SECRET="YOUR_CLIENT_SECRET"' >> ~/.bashrc
 source ~/.bashrc
 ```
 
-**Untuk Windows (PowerShell):**
+**Windows (PowerShell):**
 ```powershell
-[System.Environment]::SetEnvironmentVariable('SPOTIPY_CLIENT_ID', 'KODE_CLIENT_ID_ANDA', 'User')
-[System.Environment]::SetEnvironmentVariable('SPOTIPY_CLIENT_SECRET', 'KODE_CLIENT_SECRET_ANDA', 'User')
+[System.Environment]::SetEnvironmentVariable('SPOTIPY_CLIENT_ID', 'YOUR_CLIENT_ID', 'User')
+[System.Environment]::SetEnvironmentVariable('SPOTIPY_CLIENT_SECRET', 'YOUR_CLIENT_SECRET', 'User')
 ```
 
-Setelah selesai, Anda dapat memverifikasinya dengan mengetik `mmpd doctor` di terminal. Jika berhasil, Anda akan melihat status kredensial telah disetel dengan tanda `[OK]` berwarna hijau.
+To verify your configuration, run `mmpd doctor` in your terminal. A green `[OK]` status will indicate successful configuration.
 
 ---
 
-## 🎵 Aplikasi Pemutar Musik yang Disarankan
+## 🎵 Recommended Music Players
 
-Untuk mendapatkan pengalaman terbaik dalam mendengarkan lagu dan membaca lirik karaoke hasil unduhan, Anda dapat menggunakan aplikasi pemutar musik berikut:
+For the best experience enjoying synchronized karaoke lyrics and embedded album artwork, we recommend the following music players:
 
-- **Android**: Poweramp Music Player, Musicolet, Retro Music Player, atau pemutar bawaan Huawei/HarmonyOS.
-- **Windows**: MusicBee, foobar2000 (dengan plugin ESLyric).
-- **Linux**: Sayonara Music Player.
+- **Android**: [Poweramp Music Player](https://play.google.com/store/apps/details?id=com.maxmpz.audioplayer), [Musicolet](https://play.google.com/store/apps/details?id=in.krosbits.musicolet), Retro Music Player, or stock Huawei/HarmonyOS Music Player.
+- **Windows**: [MusicBee](https://getmusicbee.com/), [foobar2000](https://www.foobar2000.org/) (with the ESLyric component).
+- **Linux**: [Sayonara Music Player](https://sayonara-player.com/).
 
-Pastikan file lirik (`.lrc`) diletakkan di folder yang sama dan memiliki nama yang sama persis dengan file lagu (`.mp3` atau `.flac`) Anda.
+> 💡 **Tip:** Ensure the `.lrc` lyric file is kept in the same folder and has the exact same base filename as the corresponding music file (e.g., `Song.mp3` and `Song.lrc`).
