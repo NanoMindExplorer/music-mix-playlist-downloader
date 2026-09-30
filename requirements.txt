@@ -22,3 +22,5 @@ spotipy>=2.23.0
 opencc-python-reimplemented>=0.1.7
 ToJyutping>=0.2.1
 pythainlp>=4.0.2
+# Web Browser UI
+flask>=3.0.0

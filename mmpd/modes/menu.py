@@ -113,6 +113,17 @@ def run_cli() -> None:
                 console.print("\n[bold magenta]Terima kasih telah menggunakan aplikasi ini! 👋[/bold magenta]\n")
                 break
             continue
+        elif mode == 6:
+            from mmpd.web import run_server
+            console.print("\n[bold cyan]🌐 Menjalankan Web Browser Interface...[/bold cyan]")
+            try:
+                run_server()
+            except KeyboardInterrupt:
+                console.print("\n[bold yellow]Server web dihentikan.[/bold yellow]")
+            if not ask_confirm("\n🔄 Kembali ke menu utama?", default=True):
+                console.print("\n[bold magenta]Terima kasih telah menggunakan aplikasi ini! 👋[/bold magenta]\n")
+                break
+            continue
 
         # === MODE DOWNLOAD UTAMA (1/4/5) ===
         _run_download_loop(mode)

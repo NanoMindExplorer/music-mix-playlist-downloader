@@ -128,6 +128,7 @@ MODE_CHOICES: Dict[str, int] = {
     "📁 3. Mode Pengatur Otomatis (Rapikan File Lirik/MP3 Unduhan Manual)": 3,
     "🎵 4. Mode Spotify (Download Lagu/Playlist dari Spotify)": 4,
     "☁️  5. Mode SoundCloud (Download Lagu/Playlist dari SoundCloud)": 5,
+    "🌐 6. Mode Web Browser (Gunakan Aplikasi Lewat Browser)": 6,
 }
 
 # Pilihan sumber lirik

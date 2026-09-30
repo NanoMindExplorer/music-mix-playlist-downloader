@@ -36,7 +36,9 @@ winget install --id Gyan.FFmpeg -e --source winget; git clone https://github.com
 Once installed, simply type `mmpd` in your terminal to launch the interactive interface. You can navigate the menu using your keyboard's arrow keys:
 
 ```bash
-mmpd                  # Interactive menu (5 modes)
+mmpd                  # Interactive menu (6 modes)
+mmpd web              # Start Web Browser GUI (http://localhost:5000)
+python web_app.py     # Standalone Web Browser launcher
 mmpd doctor           # Diagnostics & dependency check
 mmpd self-update      # Update to the latest release
 mmpd --version        # Display current version
@@ -56,6 +58,20 @@ Download tracks, albums, or playlists directly from Spotify URLs. Simply paste t
 
 ### ☁️ 5. SoundCloud Mode
 Seamlessly download individual tracks or full playlists directly from SoundCloud.
+
+### 🌐 6. Web Browser Interface (GUI Mode)
+Use the application directly in any web browser on your phone, tablet, or PC! Simply run:
+```bash
+python web_app.py
+# or
+mmpd web
+```
+Then open your browser at **`http://localhost:5000`** (or `http://<YOUR_WIFI_IP>:5000` from your mobile phone).
+- 🎨 Modern Cyberpunk dark-mode responsive interface
+- 📊 Real-time download progress bar, speed meter, and terminal logs
+- 🎵 Built-in audio player for all downloaded tracks (supports streaming & seek)
+- 🎤 Synchronized karaoke lyrics modal with Indonesian translation side-by-side
+- 🔔 Real-time Discord Webhook notifications on download completion!
 
 ---
 

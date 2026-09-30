@@ -197,6 +197,14 @@ def build_parser() -> argparse.ArgumentParser:
     p_up.add_argument("--no-pull", action="store_true",
                       help="skip git pull (hanya reinstall dependencies)")
 
+    # ------------------------------------------------------------------
+    # web (Browser UI)
+    # ------------------------------------------------------------------
+    p_web = sub.add_parser("web", help="jalankan Web Browser Interface GUI")
+    p_web.add_argument("--host", default="0.0.0.0", help="host listen (default: 0.0.0.0)")
+    p_web.add_argument("--port", "-p", type=int, default=5000, help="port server (default: 5000)")
+    p_web.add_argument("--no-browser", action="store_true", help="jangan otomatis buka browser")
+
     return parser
 
 
@@ -343,6 +351,15 @@ def _cmd_self_update(args) -> int:
     return self_update(pull=not args.no_pull)
 
 
+def _cmd_web(args) -> int:
+    from mmpd.web import run_server
+    try:
+        run_server(host=args.host, port=args.port, open_browser=not args.no_browser)
+        return 0
+    except KeyboardInterrupt:
+        return 0
+
+
 # ============================================================================
 # Entry point
 # ============================================================================
@@ -382,6 +399,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return run_doctor()
     if args.command == "self-update":
         return _cmd_self_update(args)
+    if args.command == "web":
+        return _cmd_web(args)
 
     # Tanpa subcommand → menu interaktif (backward compatible)
     from mmpd.modes.download import run_cli
