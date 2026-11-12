@@ -72,6 +72,7 @@ Then open your browser at **`http://localhost:5000`** (or `http://<YOUR_WIFI_IP>
 - 🎵 Built-in audio player for all downloaded tracks (supports streaming & seek)
 - 🎤 Synchronized karaoke lyrics modal with Indonesian translation side-by-side
 - 🔔 Real-time Discord Webhook notifications on download completion!
+  - Set the webhook URL via environment variable: `MMPD_DISCORD_WEBHOOK=https://discord.com/api/webhooks/<id>/<token>` (never commit the URL — this repo is public).
 
 ---
 

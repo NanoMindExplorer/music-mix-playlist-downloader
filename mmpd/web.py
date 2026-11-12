@@ -47,10 +47,10 @@ from mmpd.ytdlp import YTDLPLogger, build_download_opts
 
 _log = get_logger()
 
-DEFAULT_DISCORD_WEBHOOK = os.environ.get(
-    "MMPD_DISCORD_WEBHOOK",
-    "https://discord.com/api/webhooks/1554679149459935418/eZvLqvhcOypINbSiwCvOQVnKJ0KeV_qP_wmQiHw_wTeWxmmmc6wxjZRktzodeX2Mkldo"
-)
+# Discord webhook URL — ONLY from the MMPD_DISCORD_WEBHOOK environment
+# variable. Never hardcode a webhook URL here: this repo is public and a
+# hardcoded URL lets anyone post to your Discord channel.
+DEFAULT_DISCORD_WEBHOOK = os.environ.get("MMPD_DISCORD_WEBHOOK", "")
 
 
 # ============================================================================

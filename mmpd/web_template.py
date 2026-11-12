@@ -777,7 +777,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
           Setiap kali proses unduhan atau perbaikan musik selesai, bot akan secara otomatis mengirim kartu rangkuman ke Discord channel Anda:
         </p>
         <div class="form-group">
-          <input type="text" id="webhook-url" readonly value="https://discord.com/api/webhooks/1554679149459935418/eZvLqvhcOypINbSiwCvOQVnKJ0KeV_qP_wmQiHw_wTeWxmmmc6wxjZRktzodeX2Mkldo" style="font-family: monospace; font-size: 0.8rem; color: #94a3b8;">
+          <input type="text" id="webhook-url" readonly value="" placeholder="Belum diatur — set MMPD_DISCORD_WEBHOOK" style="font-family: monospace; font-size: 0.8rem; color: #94a3b8;">
         </div>
         <div id="webhook-status" style="font-size: 0.85rem;"></div>
       </div>
